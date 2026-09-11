@@ -339,5 +339,29 @@
   }
   bindQuickChips();
 
-  document.addEventListener('DOMContentLoaded', init);
+  // 全局目的地上下文：自动预填城市并跑一次默认查询（Task 3）
+  function bindTripContext() {
+    if (!window.Cart) return;
+
+    let lastCity = els.city.value.trim();
+    els.city.addEventListener('change', () => {
+      const next = els.city.value.trim();
+      if (!next || next === lastCity) return;
+      if (!Cart.guardCitySwitch(next)) {
+        els.city.value = lastCity; // 用户取消：回滚输入框
+        return;
+      }
+      lastCity = next;
+    });
+
+    Cart.prefillCity('city-input', () => {
+      lastCity = els.city.value.trim();
+      els.form.requestSubmit();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    init();
+    bindTripContext();
+  });
 })();

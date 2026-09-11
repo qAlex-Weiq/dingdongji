@@ -213,10 +213,14 @@
   function renderSpecialties(list) {
     const root = resultPanels.specialty;
     root.innerHTML = '';
+    // 暴露给 cart.js 反查完整条目（按名称）
+    window.__ddjRendered = { ...(window.__ddjRendered || {}), dish: list };
     if (!list.length) {
       root.innerHTML = '<p class="empty-tip">暂无该分类的特色菜品，试试其他分类。</p>';
       return;
     }
+    // 菜品数据不含 city 字段，用当前查询城市作为归属地
+    const city = (cityInput.value || '').trim();
     list.forEach((d, i) => {
       const card = document.createElement('article');
       card.className = 'card sight-card menu-card';
@@ -241,6 +245,9 @@
           <p class="sight-desc">${escapeHtml(d.intro)}</p>
           <div class="sight-meta">${meta}</div>
           ${tags ? `<div class="sight-tags">${tags}</div>` : ''}
+        </div>
+        <div class="card-side sight-side">
+          ${window.Cart && city ? Cart.addButton('dish', city, d) : ''}
         </div>
       `;
       root.appendChild(card);
@@ -315,6 +322,8 @@
 
   /** 餐厅卡（与景点/酒店卡片同构）：编号 + 名称/菜系/评分/营业 + 招牌菜 + 营业/地址 + 人均参考价 */
   function restaurantCard(r, i) {
+    // 接口返回的餐厅对象不含 city 字段，用当前查询城市作为归属地
+    const city = (cityInput.value || '').trim();
     const openBadge = r.hours.isOpenNow
       ? '<span class="open-badge open">营业中</span>'
       : '<span class="open-badge closed">未营业</span>';
@@ -355,7 +364,7 @@
         </div>
         <div class="card-side sight-side">
           ${price}
-          ${window.Cart && r.city ? Cart.addButton('food', r.city, r) : ''}
+          ${window.Cart && city ? Cart.addButton('food', city, r) : ''}
         </div>
       </article>`;
   }
@@ -496,6 +505,31 @@
     });
   }
   bindQuickChips();
+
+  // 全局目的地上下文：自动预填城市并跑一次默认查询（Task 3）
+  function bindTripContext() {
+    if (!window.Cart) return;
+
+    // 用户手动改城市时，若篮中已有其他城市的条目，先确认再放行
+    let lastCity = cityInput.value.trim();
+    cityInput.addEventListener('change', () => {
+      const next = cityInput.value.trim();
+      if (!next || next === lastCity) return;
+      if (!Cart.guardCitySwitch(next)) {
+        cityInput.value = lastCity; // 用户取消：回滚输入框
+        return;
+      }
+      lastCity = next;
+    });
+
+    // 预填后自动查询「特色菜品」（默认 tab），省去用户点搜索
+    Cart.prefillCity('city-input', () => {
+      updateCityClear();
+      lastCity = cityInput.value.trim();
+      formSpecialty.requestSubmit();
+    });
+  }
+  bindTripContext();
 
   loadCities();
   loadCuisines();
