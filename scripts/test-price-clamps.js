@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 价格真实性防线离线单测（不联网）
- * 覆盖：12306 票价/余票/历时解析、酒店档位价格 clamp、餐厅人均价格 clamp
+ * 覆盖：12306 票价/余票/历时/折扣价（明文 yp_info）解析、酒店档位价格 clamp、餐厅人均价格 clamp
  * 运行：node scripts/test-price-clamps.js
  */
 const path = require('path');
@@ -37,6 +37,14 @@ test('availToStatus "" -> null（席别不存在）', () => { if (t12306.availTo
 test('parseLishi "05:30" -> 330 分钟', () => { if (t12306.parseLishi('05:30') !== 330) throw new Error(String(t12306.parseLishi('05:30'))); });
 test('parseLishi 非法 -> null', () => { if (t12306.parseLishi('abc') !== null) throw new Error('bad'); });
 test('trainTypeOf G/D/K 前缀', () => { if (t12306.trainTypeOf('G101') !== '高铁' || t12306.trainTypeOf('D5') !== '动车' || t12306.trainTypeOf('K408') !== '普速') throw new Error('bad'); });
+
+console.log('12306 明文 yp_info（实际折扣价）解析:');
+test('parseYpInfo G547 实测样本 -> 商务2156/一等967/二等576', () => { if (!eq(t12306.parseYpInfo('9215600011M096700013O057600021O057603000'), { 9: 2156, M: 967, O: 576 })) throw new Error(JSON.stringify(t12306.parseYpInfo('9215600011M096700013O057600021O057603000'))); });
+test('parseYpInfo Z174 普速样本 -> 硬座273.5/硬卧463.5/软卧734.5（重复硬座=无座额度跳过）', () => { if (!eq(t12306.parseYpInfo('1027350021407345000030463500001027353104'), { 1: 273.5, 3: 463.5, 4: 734.5 })) throw new Error('bad'); });
+test('parseYpInfo 空串/乱码/奇数长度 -> {}（回退公布价）', () => { if (!eq(t12306.parseYpInfo(''), {}) || !eq(t12306.parseYpInfo('abcdefghij'), {}) || !eq(t12306.parseYpInfo('921560001'), {})) throw new Error('bad'); });
+test('findYpField 优先取 [39]，异常时向后扫描兜底', () => { const fields = Array(40).fill(''); if (t12306.findYpField(fields) !== '') throw new Error('空值应返回空串'); fields[39] = '9215600011M096700013O057600021O057603000'; if (t12306.findYpField(fields).slice(0, 10) !== '9215600011') throw new Error('[39] 未命中'); });
+test('discountLabelOf 576/795 -> 7.2折；967/1272 -> 7.6折', () => { if (t12306.discountLabelOf(576, 795) !== '7.2折' || t12306.discountLabelOf(967, 1272) !== '7.6折') throw new Error('bad'); });
+test('discountLabelOf 全价/近全价（794/795）-> undefined 不展示', () => { if (t12306.discountLabelOf(795, 795) !== undefined || t12306.discountLabelOf(794, 795) !== undefined) throw new Error('bad'); });
 
 console.log('酒店价格 clamp（normalizeTierPrice）:');
 test('null 守卫：非数字/≤50/>50000 -> null', () => { if (hotel.normalizeTierPrice(NaN, '豪华型') !== null || hotel.normalizeTierPrice(50, '豪华型') !== null || hotel.normalizeTierPrice(60000, '豪华型') !== null) throw new Error('bad'); });

@@ -13,7 +13,7 @@ const path = require('path');
 const SETTINGS_FILE = path.join(__dirname, '..', '..', '.settings.json');
 
 /** 可配置字段白名单 */
-const FIELDS = ['llmBaseUrl', 'llmApiKey', 'llmModel', 'amapKey'];
+const FIELDS = ['llmBaseUrl', 'llmApiKey', 'llmModel', 'amapKey', 'amadeusClientId', 'amadeusSecret'];
 
 /** 内存缓存（避免每次请求读文件） */
 let memory = null;
@@ -54,6 +54,8 @@ function getEffective() {
     llmApiKey: s.llmApiKey || process.env.LLM_API_KEY || '',
     llmModel: s.llmModel || process.env.LLM_MODEL || 'glm-4-flash',
     amapKey: s.amapKey || process.env.AMAP_KEY || '',
+    amadeusClientId: s.amadeusClientId || process.env.AMADEUS_CLIENT_ID || '',
+    amadeusSecret: s.amadeusSecret || process.env.AMADEUS_CLIENT_SECRET || '',
   };
 }
 

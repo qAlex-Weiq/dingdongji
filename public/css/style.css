@@ -369,6 +369,18 @@ button { font-family: inherit; }
 .st-few { color: var(--amber); background: rgba(217, 119, 6, 0.1); }
 .st-wait { color: var(--text-3); background: #eef0f4; }
 
+.seat-discount {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  color: #c2410c;
+  background: #fff3e9;
+  border: 1px solid #ffd9bd;
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 16px;
+}
+
 /* 价格区 */
 
 .card-side {

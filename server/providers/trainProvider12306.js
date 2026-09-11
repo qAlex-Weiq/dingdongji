@@ -44,6 +44,53 @@ const PRICE_FIELDS = [
 // ---- 余票管道字段的列下标（queryG result，已交叉验证） ----
 const AVAIL_COLS = { 商务座: 32, 一等座: 31, 二等座: 30, 软卧: 23, 硬卧: 28, 硬座: 29 };
 
+// ---- 明文 yp_info：余票行里同时携带的「实际执行价（含折扣）+ 余量」 ----
+// 格式为 10 字符一组：席别代码(1) + 价格(5，前 4 位元 + 末位角) + 余量(4)。
+// 代码与席别对应（2026-09 实测验证）：9 商务 / M 一等 / O 二等 / 4 软卧 / 3 硬卧 / 1 硬座。
+// 同一代码出现第二条（余量数千）为无座额度，价格与基础席别相同，展示时跳过。
+const YP_SEAT_CODES = { 商务座: '9', 一等座: 'M', 二等座: 'O', 软卧: '4', 硬卧: '3', 硬座: '1' };
+const YP_FIELD_RE = /^(?:[0-9A-Z]\d{9}){2,}$/;
+
+/** 从余票管道字段数组中定位明文 yp_info（固定在 [39]，异常时向后扫描兜底） */
+function findYpField(fields) {
+  if (Array.isArray(fields)) {
+    const preferred = fields[39];
+    if (typeof preferred === 'string' && YP_FIELD_RE.test(preferred)) return preferred;
+    for (let i = 34; i < fields.length; i += 1) {
+      const v = fields[i];
+      if (typeof v === 'string' && YP_FIELD_RE.test(v)) return v;
+    }
+  }
+  return '';
+}
+
+/**
+ * 解析明文 yp_info -> { 席别代码: 实际执行价(元) }。
+ * 任一条目格式异常则整体放弃（上层回退公布价），保证不产出错误价格。
+ */
+function parseYpInfo(raw) {
+  const out = {};
+  const s = String(raw || '');
+  if (s.length === 0 || s.length % 10 !== 0) return out;
+  for (let i = 0; i < s.length; i += 10) {
+    const entry = s.slice(i, i + 10);
+    if (!/^[0-9A-Z]\d{9}$/.test(entry)) return {};
+    const code = entry[0];
+    if (out[code] !== undefined) continue; // 无座额度等重复条目
+    const price = Number(entry.slice(1, 5)) + Number(entry.slice(5, 6)) / 10;
+    if (price > 0) out[code] = price;
+  }
+  return out;
+}
+
+/** 折扣标签：实际价低于公布价时给出「7.2折」，视为全价（≥9.95折）时不展示 */
+function discountLabelOf(actual, published) {
+  if (!(published > 0) || !(actual > 0) || actual >= published - 0.5) return undefined;
+  const zhe = Math.round((actual / published) * 100) / 10;
+  if (zhe >= 9.95) return undefined;
+  return `${Number.isInteger(zhe) ? zhe : zhe.toFixed(1)}折`;
+}
+
 // ---------------------------------------------------------------- 基础请求
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = TIMEOUT) {
@@ -208,14 +255,19 @@ async function search({ from, to, date }) {
       if (seen.has(dedupeKey)) continue;
 
       const seats = [];
+      const avail = availMap.get(`${dto.train_no}|${dto.from_station_telecode}`);
+      // 明文 yp_info 的实际执行价（含 12306 折扣），余票行可用时优先于公布价
+      const ypPrices = avail ? parseYpInfo(findYpField(avail)) : {};
       for (const [field, className] of PRICE_FIELDS) {
-        const price = parsePrice(dto[field]);
-        if (price == null) continue;
-        const avail = availMap.get(`${dto.train_no}|${dto.from_station_telecode}`);
+        const published = parsePrice(dto[field]);
+        if (published == null) continue;
         const raw = avail ? avail[AVAIL_COLS[className]] : '';
+        const actual = ypPrices[YP_SEAT_CODES[className]];
+        const price = actual > 0 ? actual : published;
         seats.push({
           class: className,
           price,
+          discount: discountLabelOf(price, published),
           status: availToStatus(raw) || '—',
         });
       }
@@ -301,4 +353,4 @@ function clearCache() {
   cookie = null;
 }
 
-module.exports = { search, clearCache, _internal: { parsePrice, availToStatus, parseLishi, trainTypeOf } };
+module.exports = { search, clearCache, _internal: { parsePrice, availToStatus, parseLishi, trainTypeOf, findYpField, parseYpInfo, discountLabelOf } };

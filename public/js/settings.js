@@ -15,8 +15,12 @@
     key: $('#llm-key'),
     model: $('#llm-model'),
     amapKey: $('#amap-key'),
+    amadeusId: $('#amadeus-id'),
+    amadeusSecret: $('#amadeus-secret'),
     keyNote: $('#llm-key-note'),
     amapKeyNote: $('#amap-key-note'),
+    amadeusIdNote: $('#amadeus-id-note'),
+    amadeusSecretNote: $('#amadeus-secret-note'),
     saveBtn: $('#save-btn'),
     testBtn: $('#test-btn'),
     status: $('#settings-status'),
@@ -60,6 +64,15 @@
         ? `已保存：${d.user.amapKeyMasked}`
         : (d.effective.amapReady ? '当前使用 .env 环境变量中的 Key' : '');
 
+      els.amadeusId.value = d.user.amadeusClientId || '';
+      els.amadeusSecret.value = '';
+      els.amadeusSecret.placeholder = d.user.amadeusSecretConfigured
+        ? `已配置（${d.user.amadeusSecretMasked}），留空表示不修改`
+        : '未配置（可选）';
+      els.amadeusSecretNote.textContent = d.user.amadeusSecretConfigured
+        ? `已保存：${d.user.amadeusSecretMasked}`
+        : (d.effective.amadeusReady ? '当前使用 .env 环境变量中的凭据' : '');
+
       renderStatus(d);
     } catch (err) {
       els.status.innerHTML = `<p class="status-line st-err">配置加载失败：${esc(err.message)}</p>`;
@@ -73,7 +86,10 @@
     const amap = d.effective.amapReady
       ? `<span class="badge badge-ok">高德地图 · 已就绪</span>`
       : `<span class="badge badge-off">高德地图 · 未配置（可选）</span>`;
-    els.status.innerHTML = `<p class="status-line">${llm}</p><p class="status-line">${amap}</p>`;
+    const amadeus = d.effective.amadeusReady
+      ? `<span class="badge badge-ok">机票实时数据 · 已就绪</span>`
+      : `<span class="badge badge-off">机票实时数据 · 未配置（可选）</span>`;
+    els.status.innerHTML = `<p class="status-line">${llm}</p><p class="status-line">${amap}</p><p class="status-line">${amadeus}</p>`;
   }
 
   // ---------- 保存 ----------
@@ -89,6 +105,9 @@
     if (key) body.llmApiKey = key;
     const amapKey = els.amapKey.value.trim();
     if (amapKey) body.amapKey = amapKey;
+    body.amadeusClientId = els.amadeusId.value.trim(); // 非密钥，直接回填
+    const amadeusSecret = els.amadeusSecret.value.trim();
+    if (amadeusSecret) body.amadeusSecret = amadeusSecret;
 
     els.saveBtn.disabled = true;
     els.saveBtn.textContent = '保存中…';
@@ -100,7 +119,7 @@
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || `保存失败（${res.status}）`);
-      showToast('配置已保存，景点缓存已刷新');
+      showToast('配置已保存，各模块缓存已刷新');
       await load();
     } catch (err) {
       showToast(err.message || '保存失败，请稍后重试', 'error');
@@ -116,6 +135,9 @@
     const body = { llmBaseUrl: els.url.value.trim() };
     const key = els.key.value.trim();
     if (key) body.llmApiKey = key; // 未输入时用已保存/环境变量的 Key
+    body.amadeusClientId = els.amadeusId.value.trim();
+    const amadeusSecret = els.amadeusSecret.value.trim();
+    if (amadeusSecret) body.amadeusSecret = amadeusSecret;
 
     els.testBtn.disabled = true;
     els.testBtn.textContent = '测试中…';
@@ -127,19 +149,36 @@
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || `测试失败（${res.status}）`);
-      // 校验模型名：接口连通但模型不在可用列表时明确警告（模型名错误会导致 AI 搜索报错）
-      const models = d.models || [];
-      const cur = els.model.value.trim();
-      if (!models.length) {
-        showToast('连接成功 ✓（接口未返回模型列表，无法校验模型名）');
-      } else if (!cur) {
-        els.model.value = models[0];
-        showToast(`连接成功 ✓ 已填入默认模型：${models[0]}`);
-      } else if (!models.includes(cur)) {
-        showToast(`连接成功，但模型「${cur}」不在可用列表：${models.slice(0, 6).join('、')}，请修改后再保存`, 'error');
-      } else {
-        showToast(`连接成功 ✓ 模型「${cur}」可用（共 ${models.length} 个）`);
+      // 汇总各数据源的测试结果（LLM 校验模型名；Amadeus 校验凭据）
+      const parts = [];
+      let hasError = false;
+      if (d.llmTested) {
+        const models = d.models || [];
+        const cur = els.model.value.trim();
+        if (d.llmError) {
+          parts.push(d.llmError);
+          hasError = true;
+        } else if (!models.length) {
+          parts.push('LLM 连接成功 ✓（接口未返回模型列表，无法校验模型名）');
+        } else if (!cur) {
+          els.model.value = models[0];
+          parts.push(`LLM 连接成功 ✓ 已填入默认模型：${models[0]}`);
+        } else if (!models.includes(cur)) {
+          parts.push(`模型「${cur}」不在可用列表：${models.slice(0, 6).join('、')}，请修改后再保存`);
+          hasError = true;
+        } else {
+          parts.push(`LLM 连接成功 ✓ 模型「${cur}」可用（共 ${models.length} 个）`);
+        }
       }
+      if (d.amadeusTested) {
+        if (d.amadeusOk) {
+          parts.push('Amadeus 连接成功 ✓（机票实时数据已就绪）');
+        } else {
+          parts.push(d.amadeusError || 'Amadeus 连接失败');
+          hasError = true;
+        }
+      }
+      showToast(parts.join('；'), hasError ? 'error' : 'info');
     } catch (err) {
       showToast(err.message || '测试失败，请检查地址与密钥', 'error');
     } finally {

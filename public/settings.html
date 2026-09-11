@@ -61,6 +61,22 @@
           <p class="field-note" id="amap-key-note"></p>
         </div>
 
+        <h2 class="settings-section-title">机票实时数据 · Amadeus（可选）</h2>
+        <p class="settings-section-desc">配置后车票页机票将使用 Amadeus 实时报价（真实班次 / 时刻 / 含税总价）。
+          在 <a href="https://developers.amadeus.com" target="_blank" rel="noopener">Amadeus 开发者平台</a>免费注册，创建 Flight Offers Search 应用即可获得凭据（测试环境每月有免费额度）。</p>
+
+        <div class="field field-block">
+          <label for="amadeus-id">Client ID（API Key）</label>
+          <input id="amadeus-id" type="text" placeholder="未配置（可选），如：3sZ9xGDEYyyrABC123DEF" maxlength="100">
+          <p class="field-note" id="amadeus-id-note"></p>
+        </div>
+
+        <div class="field field-block">
+          <label for="amadeus-secret">Client Secret</label>
+          <input id="amadeus-secret" type="password" placeholder="未配置（可选）" maxlength="200" autocomplete="new-password">
+          <p class="field-note" id="amadeus-secret-note"></p>
+        </div>
+
         <div class="settings-actions">
           <button type="submit" class="search-btn" id="save-btn">保存配置</button>
           <button type="button" class="btn-ghost" id="test-btn">测试连接</button>
@@ -75,7 +91,7 @@
       <ul>
         <li>配置优先级：本页保存的配置 &gt; 服务端 .env 环境变量 &gt; 默认值。</li>
         <li>API Key 仅保存在服务端本地，接口返回时自动脱敏（如 <code>sk-KA***xxxx</code>），不会明文回显。</li>
-        <li>保存后景点缓存会自动清空，下次搜索立即使用新配置。</li>
+        <li>保存后景点 / 酒店 / 美食 / 机票缓存会自动清空，下次搜索立即使用新配置。</li>
         <li>AI 联网搜索需实时生成内容，约需 10~40 秒；本地数据秒开但仅覆盖 25 个热门城市。</li>
       </ul>
     </section>

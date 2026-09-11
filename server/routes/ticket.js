@@ -5,6 +5,8 @@ const { findCity } = require('../data/cities');
 const flightProvider = require('../providers/flightProvider');
 const trainProvider = require('../providers/trainProvider');
 const trainProvider12306 = require('../providers/trainProvider12306');
+const flightProviderAmadeus = require('../providers/flightProviderAmadeus');
+const settings = require('../lib/settings');
 
 const router = express.Router();
 
@@ -50,9 +52,26 @@ router.get('/search', async (req, res, next) => {
       trains = await trainProvider.search({ from: fromCity, to: toCity, date: query.date });
     }
 
-    const flights = await flightProvider.search({ from: fromCity, to: toCity, date: query.date });
+    // 机票：配置了 Amadeus 时用实时报价（班次/时刻/含税总价），失败或未配置降级本地模拟并透出原因
+    let flights;
+    let flightsSource = 'local';
+    let flightsNote = null;
+    const eff = settings.getEffective();
+    if (eff.amadeusClientId && eff.amadeusSecret) {
+      try {
+        flights = await flightProviderAmadeus.search({ from: fromCity, to: toCity, date: query.date });
+        flightsSource = 'amadeus';
+      } catch (err) {
+        flightsNote = `Amadeus 实时查询不可用（${err.message}），以下为模拟数据`;
+        console.warn(`[ticket] 机票降级到本地模拟：${err.message}`);
+        flights = await flightProvider.search({ from: fromCity, to: toCity, date: query.date });
+      }
+    } else {
+      flightsNote = '机票为模拟数据（可在设置页配置 Amadeus 获取实时票价）';
+      flights = await flightProvider.search({ from: fromCity, to: toCity, date: query.date });
+    }
 
-    res.json({ query, flights, trains, trainsSource, trainsNote });
+    res.json({ query, flights, trains, trainsSource, trainsNote, flightsSource, flightsNote });
   } catch (err) {
     next(err);
   }

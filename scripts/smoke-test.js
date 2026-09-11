@@ -33,6 +33,16 @@ function check(name, cond, extra = '') {
   if (r1.body.trainsSource === '12306') {
     const seatPrices = (r1.body.trains || []).flatMap((tr) => (tr.seats || []).map((se) => se.price)).filter((v) => typeof v === 'number');
     check('12306 座位票价均为正数（真实票价）', seatPrices.length > 0 && seatPrices.every((v) => v > 0), `${seatPrices.length} 个座位价 · 最低 ¥${Math.min(...seatPrices)}`);
+    const discounts = (r1.body.trains || []).flatMap((tr) => (tr.seats || []).map((se) => se.discount)).filter(Boolean);
+    const badDiscounts = discounts.filter((d) => !/^\d+(\.\d)?折$/.test(d));
+    check('折扣标签格式合法（如 7.2折）', badDiscounts.length === 0, discounts.length > 0 ? `出现 ${discounts.length} 个折扣标签，样例 ${discounts[0]}` : '本班次无折扣席位（全价票不展示标签）');
+  }
+  // 机票数据源标识与降级说明（Amadeus 实时 / 本地模拟）
+  check('机票数据源标识有效', r1.body.flightsSource === 'amadeus' || r1.body.flightsSource === 'local', `flightsSource=${r1.body.flightsSource}`);
+  if (r1.body.flightsSource === 'local') {
+    check('本地模拟机票时透出说明（flightsNote）', typeof r1.body.flightsNote === 'string' && r1.body.flightsNote.length > 0, r1.body.flightsNote);
+  } else {
+    check('Amadeus 实时机票票价为正数', (r1.body.flights || []).every((fl) => typeof fl.price === 'number' && fl.price > 0), `含税价样例 ¥${f.price}`);
   }
 
   // 3. 确定性：同条件两次查询结果一致
@@ -225,7 +235,8 @@ function check(name, cond, extra = '') {
   const ppOk = ppRes.status === 200 && Array.isArray(ppBody.recommendations) && ppBody.recommendations.length > 0 && Array.isArray(ppBody.parsed);
   check('POST /api/food/personalize 返回推荐与解析', ppOk, `解析 ${ppBody.parsed?.length} 项 · 推荐 ${ppBody.recommendations?.length} 家`);
   const parsedKeywords = (ppBody.parsed || []).map((p) => p.key);
-  check('识别到关键词「朋友」「宵夜」', parsedKeywords.includes('朋友') && parsedKeywords.includes('宵夜'));
+  // LLM 可能将「宵夜」同义归一为「夜宵」，两者都算命中
+  check('识别到关键词「朋友」「宵夜/夜宵」', parsedKeywords.includes('朋友') && (parsedKeywords.includes('宵夜') || parsedKeywords.includes('夜宵')), `keys: ${parsedKeywords.join('、')}`);
   check('识别到预算区间（price 类型或 预算/人均 前缀）', (ppBody.parsed || []).some((p) => p.type === 'price') || parsedKeywords.some((k) => /^预算|^人均/.test(k)), `keys: ${parsedKeywords.join('、')}`);
   const rec0 = ppBody.recommendations?.[0] || {};
   check('推荐字段完整（含 score / reason）', rec0.restaurant && typeof rec0.score === 'number' && typeof rec0.reason === 'string');

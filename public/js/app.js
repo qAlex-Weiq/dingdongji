@@ -180,7 +180,7 @@
     if (!state.data || state.loading) return;
     const tab = state.activeTab;
     const list = sorted(state.data[tab]);
-    const note = tab === 'trains' ? trainsSourceNote() : '';
+    const note = tab === 'trains' ? trainsSourceNote() : flightsSourceNote();
     els.panels[tab].innerHTML =
       note + (list.length === 0 ? emptyHtml() : list.map(tab === 'flights' ? flightCard : trainCard).join(''));
   }
@@ -206,7 +206,7 @@
           <div class="card-top">
             <span class="carrier">${esc(f.airline)}</span>
             <span class="code">${esc(f.flightNo)}</span>
-            <span class="tag-soft">准点率 ${f.punctuality}%</span>
+            ${f.punctuality != null ? `<span class="tag-soft">准点率 ${f.punctuality}%</span>` : ''}
           </div>
           <div class="timeline">
             <div class="node">
@@ -239,6 +239,7 @@
       <span class="seat">
         <span class="seat-class">${esc(s.class)}</span>
         <b>¥${s.price}</b>
+        ${s.discount ? `<i class="seat-discount">${esc(s.discount)}</i>` : ''}
         <i class="seat-status st-${statusKey(s.status)}">${esc(s.status)}</i>
       </span>`
       )
@@ -315,11 +316,20 @@
     return offset > 0 ? `<sup class="day-badge">+${offset}天</sup>` : '';
   }
 
+  function flightsSourceNote() {
+    const d = state.data;
+    if (!d || !d.flightsSource) return '';
+    if (d.flightsSource === 'amadeus') {
+      return `<div class="source-note ok"><span class="dot"></span>机票班次 · 含税票价来自 Amadeus 实时数据</div>`;
+    }
+    return `<div class="source-note warn"><span class="dot"></span>${esc(d.flightsNote || '机票为模拟数据')}</div>`;
+  }
+
   function trainsSourceNote() {
     const d = state.data;
     if (!d || !d.trainsSource) return '';
     if (d.trainsSource === '12306') {
-      return `<div class="source-note ok"><span class="dot"></span>火车班次 · 票价 · 余票来自 12306 实时数据</div>`;
+      return `<div class="source-note ok"><span class="dot"></span>火车班次 · 折扣票价 · 余票来自 12306 实时数据</div>`;
     }
     return `<div class="source-note warn"><span class="dot"></span>${esc(d.trainsNote || '火车票为模拟数据')}</div>`;
   }
