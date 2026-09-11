@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>行程规划 · 订懂机</title>
+  <meta name="description" content="把行程篮里的车票、酒店、景点、美食编排成逐日行程">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%9A%84%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/plan.css">
+</head>
+<body class="page-plan">
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">订</span>
+        <span class="brand-name">订懂机<i>旅行规划</i></span>
+      </a>
+      <nav class="module-nav" aria-label="功能模块">
+        <a href="/ticket.html">车票</a>
+        <a href="/hotel.html">酒店</a>
+        <a href="/sight.html">景点</a>
+        <a href="/food.html">美食</a>
+        <a href="/plan.html" class="is-active">行程规划</a>
+        <a href="/settings.html" class="nav-settings">设置</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ⓪ 一键智能规划 -->
+    <section class="search-card auto-plan" id="auto-plan">
+      <div class="plan-head">
+        <h1 class="plan-title">🚀 一键智能规划</h1>
+        <span class="plan-sub">不想逐个挑？填好下面几项，直接生成全套行程</span>
+      </div>
+
+      <div class="auto-plan-grid">
+        <div class="field">
+          <label for="ap-from">出发城市<i class="opt">选填</i></label>
+          <input type="text" id="ap-from" list="ap-city-list" placeholder="如 北京（填了才查车票）" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="ap-to">目的地</label>
+          <input type="text" id="ap-to" list="ap-city-list" placeholder="如 成都" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="ap-date">出发日期</label>
+          <input type="date" id="ap-date">
+        </div>
+        <div class="field">
+          <label for="ap-days">天数</label>
+          <select id="ap-days">
+            <option value="1">1 天</option>
+            <option value="2">2 天</option>
+            <option value="3" selected>3 天</option>
+            <option value="4">4 天</option>
+            <option value="5">5 天</option>
+          </select>
+        </div>
+      </div>
+
+      <datalist id="ap-city-list"></datalist>
+
+      <div class="field auto-plan-tier">
+        <label id="ap-tier-label">偏好选择</label>
+        <div class="pills" role="radiogroup" aria-labelledby="ap-tier-label">
+          <button type="button" class="pill" role="radio" aria-checked="false" data-tier="budget">🏷️ 经济实惠</button>
+          <button type="button" class="pill is-on" role="radio" aria-checked="true" data-tier="comfort">☕ 舒适均衡<span class="pill-rec">推荐</span></button>
+          <button type="button" class="pill" role="radio" aria-checked="false" data-tier="luxury">✨ 品质轻奢</button>
+        </div>
+      </div>
+
+      <div class="auto-plan-actions">
+        <span class="plan-hint" id="ap-hint"></span>
+        <button type="button" class="btn-primary" id="ap-generate">🚀 一键生成全套行程</button>
+      </div>
+    </section>
+
+    <!-- ① 行程篮 -->
+    <section class="search-card plan-basket" id="basket-section">
+      <div class="plan-head">
+        <h1 class="plan-title">行程篮</h1>
+        <span class="plan-sub" id="basket-city"></span>
+      </div>
+
+      <div id="basket-empty" class="plan-empty" hidden>
+        <p>行程篮还是空的。</p>
+        <p class="plan-empty-hint">
+          去 <a href="/sight.html">景点</a>、<a href="/hotel.html">酒店</a>、
+          <a href="/food.html">美食</a>、<a href="/ticket.html">车票</a>
+          页面挑选，点卡片上的「＋ 加入行程」即可。
+        </p>
+      </div>
+
+      <div id="basket-groups"></div>
+
+      <!-- 生成控制条 -->
+      <div class="plan-controls" id="plan-controls" hidden>
+        <div class="field plan-field">
+          <label for="days-input">行程天数</label>
+          <div class="stepper">
+            <button type="button" id="days-minus" aria-label="减少一天">−</button>
+            <input type="number" id="days-input" min="1" max="7" value="3" readonly aria-live="polite">
+            <button type="button" id="days-plus" aria-label="增加一天">+</button>
+          </div>
+        </div>
+        <div class="field plan-field">
+          <label for="start-date">出发日期</label>
+          <input type="date" id="start-date">
+        </div>
+        <div class="plan-actions">
+          <span class="plan-hint" id="plan-hint"></span>
+          <button type="button" class="btn-primary" id="generate-btn">生成行程</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ② Agent 编排过程 -->
+    <section class="agent-strip" id="agent-strip" hidden aria-live="polite">
+      <div class="agent-strip-head">
+        <span class="agent-dot" aria-hidden="true"></span>
+        <strong>Agent 编排过程</strong>
+        <span class="agent-model" id="agent-model"></span>
+      </div>
+      <ol class="agent-steps" id="agent-steps"></ol>
+    </section>
+
+    <!-- ③ 提示 -->
+    <section class="plan-warnings" id="plan-warnings" hidden>
+      <ul id="warnings-list"></ul>
+    </section>
+
+    <!-- ④ 时间轴 -->
+    <section class="result-section" id="timeline-section" hidden>
+      <div class="plan-head">
+        <h2 class="plan-title" id="timeline-title">行程安排</h2>
+        <button type="button" class="btn-ghost" id="regen-btn">重新生成</button>
+      </div>
+      <div id="timeline"></div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container">结构由确定性算法编排 · 文案由 Agent 生成 · 订懂机旅行规划</div>
+  </footer>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/cart.js"></script>
+  <script src="/js/plan.js"></script>
+</body>
+</html>
