@@ -41,8 +41,19 @@
             <button type="button" id="city-clear" class="input-clear" title="清除城市" aria-label="清除城市" hidden>×</button>
           </div>
         </div>
+        <div class="field field-source">
+          <label for="source-select">数据来源</label>
+          <select id="source-select">
+            <option value="auto">自动（推荐）</option>
+            <option value="local">本地数据（秒开）</option>
+            <option value="llm">AI 联网搜索（较慢）</option>
+          </select>
+        </div>
       </form>
       <datalist id="city-list"></datalist>
+      <p id="source-hint" class="source-hint" hidden>
+        AI 联网搜索需实时生成内容，约需 10~40 秒，请耐心等待；如需秒开结果，可选择「本地数据」。
+      </p>
 
       <div class="tabs" role="tablist" aria-label="美食功能">
         <button class="tab is-active" role="tab" id="tab-specialty" data-tab="specialty" aria-selected="true">特色菜品</button>

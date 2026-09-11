@@ -4,6 +4,8 @@
   const cityInput = document.getElementById('city-input');
   const cityList = document.getElementById('city-list');
   const cityClear = document.getElementById('city-clear');
+  const sourceSelect = document.getElementById('source-select');
+  const sourceHint = document.getElementById('source-hint');
   const tabs = Array.from(document.querySelectorAll('.tab'));
   const panels = {
     specialty: document.getElementById('panel-specialty'),
@@ -56,8 +58,19 @@
     emptyTip.className = 'empty-tip';
   }
 
-  function setSummary(text) {
-    resultSummary.textContent = text || '';
+  function setSummary(text, sourceInfo) {
+    let html = escapeHtml(text || '');
+    if (sourceInfo && sourceInfo.sourceLabel) {
+      html += ` <span class="source-badge" title="当前数据来源">${escapeHtml(sourceInfo.sourceLabel)}${sourceInfo.cached ? ' · 缓存' : ''}</span>`;
+    }
+    resultSummary.innerHTML = html;
+  }
+
+  function updateSourceHint() {
+    if (sourceHint && sourceSelect) sourceHint.hidden = sourceSelect.value !== 'llm';
+  }
+  function loadingText(fallback) {
+    return sourceSelect && sourceSelect.value === 'llm' ? 'AI 生成中…' : fallback;
   }
 
   function setTab(tab) {
@@ -146,18 +159,19 @@
     setTab('specialty');
     resultSection.hidden = true;
     emptyTip.hidden = false;
-    emptyTip.textContent = '加载中…';
+    emptyTip.textContent = loadingText('加载中…');
     emptyTip.className = 'empty-tip';
 
     try {
       const url = new URL('/api/food/specialties', location.origin);
       url.searchParams.set('city', city);
       if (category) url.searchParams.set('category', category);
+      url.searchParams.set('source', sourceSelect.value);
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '请求失败');
 
-      setSummary(`「${data.query.city}」的${data.query.category === '全部' ? '' : data.query.category + '类'}特色菜，共 ${data.specialties.length} 道`);
+      setSummary(`「${data.query.city}」的${data.query.category === '全部' ? '' : data.query.category + '类'}特色菜，共 ${data.specialties.length} 道`, data);
       renderSpecialties(data.specialties);
       resultSection.hidden = false;
       emptyTip.hidden = true;
@@ -213,7 +227,7 @@
     setTab('restaurant');
     resultSection.hidden = true;
     emptyTip.hidden = false;
-    emptyTip.textContent = '加载中…';
+    emptyTip.textContent = loadingText('加载中…');
     emptyTip.className = 'empty-tip';
 
     try {
@@ -225,6 +239,7 @@
       if (slot) url.searchParams.set('slot', slot);
       url.searchParams.set('openNow', String(openNow));
       url.searchParams.set('sort', sort);
+      url.searchParams.set('source', sourceSelect.value);
 
       const res = await fetch(url);
       const data = await res.json();
@@ -233,7 +248,7 @@
       const cuisineText = cuisines.length ? cuisines.join(' / ') : '不限';
       const slotText = slot ? `· ${slot}` : '';
       const openText = openNow ? '· 营业中' : '';
-      setSummary(`「${data.query.city}」共 ${data.restaurants.length} 家 · 菜系：${cuisineText} · 人均 ¥${data.query.priceMin}–${data.query.priceMax} ${slotText}${openText}`);
+      setSummary(`「${data.query.city}」共 ${data.restaurants.length} 家 · 菜系：${cuisineText} · 人均 ¥${data.query.priceMin}–${data.query.priceMax} ${slotText}${openText}`, data);
       renderRestaurants(data.restaurants);
       resultSection.hidden = false;
       emptyTip.hidden = true;
@@ -300,19 +315,19 @@
     setTab('personalize');
     resultSection.hidden = true;
     emptyTip.hidden = false;
-    emptyTip.textContent = '分析中…';
+    emptyTip.textContent = loadingText('分析中…');
     emptyTip.className = 'empty-tip';
 
     try {
       const res = await fetch('/api/food/personalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city, query }),
+        body: JSON.stringify({ city, query, source: sourceSelect.value }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '请求失败');
 
-      setSummary(`「${data.query.city}」· 你的描述：「${data.query.raw}」`);
+      setSummary(`「${data.query.city}」· 你的描述：「${data.query.raw}」`, data);
       renderPersonalize(data);
       resultSection.hidden = false;
       emptyTip.hidden = true;
@@ -396,6 +411,11 @@
   });
 
   cityInput.addEventListener('input', updateCityClear);
+
+  if (sourceSelect) {
+    sourceSelect.addEventListener('change', updateSourceHint);
+    updateSourceHint();
+  }
 
   function updateCityClear() {
     if (!cityClear) return;

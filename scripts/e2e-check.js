@@ -230,6 +230,27 @@ const path = require('path');
   await page.waitForTimeout(200);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-mobile.png'), fullPage: false });
 
+  // 数据来源选择：切到「本地数据」重新查询，验证 source 参数传递与徽标渲染
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.selectOption('#source-select', 'local');
+  await page.click('#tab-specialty');
+  await page.waitForTimeout(200);
+  await page.click('#form-specialty button[type="submit"]');
+  await page.waitForSelector('#specialty-panel .dish-card', { timeout: 5000 });
+  const badgeText = (await page.locator('#result-summary .source-badge').innerText()).trim();
+  console.log(`美食数据源徽标: ${badgeText}`);
+  if (!badgeText.includes('本地数据')) throw new Error(`source 徽标异常：得到 ${badgeText}`);
+  // AI 慢速提示显隐验证
+  await page.selectOption('#source-select', 'llm');
+  await page.waitForTimeout(200);
+  const hintVisible = await page.locator('#source-hint').isVisible();
+  if (!hintVisible) throw new Error('source=llm 时慢速提示未显示');
+  await page.selectOption('#source-select', 'auto');
+  await page.waitForTimeout(200);
+  const hintHidden = !(await page.locator('#source-hint').isVisible());
+  if (!hintHidden) throw new Error('source=auto 时慢速提示应隐藏');
+  console.log('数据来源选择（下拉切换 + 徽标 + 慢速提示）验证通过');
+
   // ---- 酒店模块：偏好选择 + 搜索成都 → 校验渲染与筛选 ----
   await page.goto('http://localhost:3000/hotel.html', { waitUntil: 'networkidle' });
   const hotelNav = (await page.locator('.module-nav a.is-active').innerText()).trim();

@@ -242,20 +242,40 @@ function check(name, cond, extra = '') {
   const ef5body = await ef5.json();
   check('personalize 需求过短返回 400', ef5.status === 400 && ef5body.error);
 
-  // 20. 美食页：完整功能（非占位页）
+  // 20. 美食数据源
+  const srcs = await get('/api/food/sources');
+  const srcsOk = srcs.status === 200 && Array.isArray(srcs.body.sources) && srcs.body.sources.length >= 2;
+  check('GET /api/food/sources 返回数据源状态', srcsOk, (srcs.body.sources || []).map((s) => `${s.name}:${s.configured ? '已配置' : '未配置'}`).join(' / '));
+  const badSrc = await get('/api/food/specialties?city=' + encodeURIComponent('成都') + '&source=wrong');
+  check('非法 source 返回 400', badSrc.status === 400 && badSrc.body.error);
+  const localSp = await get('/api/food/specialties?city=' + encodeURIComponent('成都') + '&category=' + encodeURIComponent('小吃') + '&source=local');
+  const localOk = localSp.status === 200 && localSp.body.source === 'local' && Array.isArray(localSp.body.specialties) && localSp.body.specialties.length > 0;
+  check('source=local 显式返回本地数据与徽标', localOk && localSp.body.sourceLabel === '本地数据', `共 ${localSp.body.specialties?.length} 道`);
+  const autoSp = await get(sq + '&source=auto');
+  const llmCfg = (srcs.body.sources || []).find((s) => s.name === 'llm');
+  if (!llmCfg || !llmCfg.configured) {
+    check('未配置 Key 时 auto 降级为 local 且结果一致', autoSp.status === 200 && autoSp.body.source === 'local' && JSON.stringify(autoSp.body.specialties) === JSON.stringify(localSp.body.specialties));
+  } else {
+    check('已配置 Key 时 auto 可用', autoSp.status === 200 && ['llm', 'local'].includes(autoSp.body.source), `实际来源：${autoSp.body.sourceLabel}`);
+  }
+  const cachedSp = await get('/api/food/specialties?city=' + encodeURIComponent('成都') + '&category=' + encodeURIComponent('小吃') + '&source=local');
+  check('同参数二次查询命中缓存', cachedSp.status === 200 && cachedSp.body.cached === true);
+
+  // 21. 美食页：完整功能（非占位页）
   const food = await fetch(BASE + '/food.html').then((r) => r.text());
   check('美食页含 3 个 tab', food.includes('data-tab="specialty"') && food.includes('data-tab="restaurant"') && food.includes('data-tab="personalize"'));
   check('美食页含特色菜品/餐厅/个性化三个表单', food.includes('form-specialty') && food.includes('form-restaurant') && food.includes('form-personalize'));
   check('美食页顶栏 nav 已改为「美食」', food.match(/<a href="\/food\.html"[^>]*>美食<\/a>/) !== null);
+  check('美食页含数据源选择器与 AI 慢速提示', food.includes('source-select') && food.includes('source-hint') && food.includes('AI 联网搜索'));
 
-  // 21. 酒店页：完整功能（非占位页）
+  // 22. 酒店页：完整功能（非占位页）
   const hotelPage = await fetch(BASE + '/hotel.html');
   const hotelHtml = await hotelPage.text();
   check('GET /hotel.html 返回 200 且为可用页', hotelPage.status === 200 && hotelHtml.includes('hotel-form') && !hotelHtml.includes('coming-soon'));
   check('酒店页包含偏好选项（价格档位 + 位置偏好）', hotelHtml.includes('name="tier"') && hotelHtml.includes('name="location"') && hotelHtml.includes('chip-row'));
   check('首页酒店模块状态为可用', /href="\/hotel\.html"[\s\S]*?st-live/.test(home));
 
-  // 22. 静态资源
+  // 23. 静态资源
   const css = await fetch(BASE + '/css/style.css');
   const js = await fetch(BASE + '/js/app.js');
   const sightJs = await fetch(BASE + '/js/sight.js');
