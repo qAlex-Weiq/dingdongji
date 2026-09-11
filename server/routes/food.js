@@ -3,6 +3,7 @@
 const express = require('express');
 const { findCity } = require('../data/cities');
 const foodProvider = require('../providers/foodProvider');
+const { isBusinessError } = require('../lib/apiError');
 const { CUISINES, VALID_SLOTS } = require('../data/food');
 
 const router = express.Router();
@@ -60,7 +61,7 @@ router.get('/specialties', async (req, res, next) => {
       ...result,
     });
   } catch (err) {
-    if (/未配置|未收录|数据源/.test(err.message)) {
+    if (isBusinessError(err.message)) {
       return res.status(400).json({ error: err.message });
     }
     next(err);
@@ -127,7 +128,7 @@ router.get('/restaurants', async (req, res, next) => {
       ...result,
     });
   } catch (err) {
-    if (/未配置|未收录|数据源/.test(err.message)) {
+    if (isBusinessError(err.message)) {
       return res.status(400).json({ error: err.message });
     }
     next(err);
@@ -160,7 +161,7 @@ router.post('/personalize', async (req, res, next) => {
     const result = await foodProvider.personalize({ city: c.name, query: String(query), source: src });
     res.json({ query: { city: c.name, raw: String(query), source: src }, ...result });
   } catch (err) {
-    if (/未配置|未收录|数据源/.test(err.message)) {
+    if (isBusinessError(err.message)) {
       return res.status(400).json({ error: err.message });
     }
     next(err);

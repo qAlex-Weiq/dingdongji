@@ -11,6 +11,7 @@ const express = require('express');
 const settings = require('../lib/settings');
 const { clearCache } = require('../providers/sightProvider');
 const { clearCache: clearHotelCache } = require('../providers/hotelProvider');
+const { clearCache: clearFoodCache } = require('../providers/foodProvider');
 
 const router = express.Router();
 
@@ -52,6 +53,7 @@ router.put('/', (req, res, next) => {
     settings.update(patch);
     clearCache(); // 数据源配置已变化，清空景点缓存
     clearHotelCache(); // 同时清空酒店缓存
+    clearFoodCache(); // 同时清空美食缓存
     res.json({ ok: true });
   } catch (err) {
     next(err);

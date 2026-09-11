@@ -127,8 +127,19 @@
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || `测试失败（${res.status}）`);
-      const models = (d.models || []).slice(0, 6).join('、');
-      showToast(`连接成功 ✓ 可用模型：${models || '（未返回列表）'}`);
+      // 校验模型名：接口连通但模型不在可用列表时明确警告（模型名错误会导致 AI 搜索报错）
+      const models = d.models || [];
+      const cur = els.model.value.trim();
+      if (!models.length) {
+        showToast('连接成功 ✓（接口未返回模型列表，无法校验模型名）');
+      } else if (!cur) {
+        els.model.value = models[0];
+        showToast(`连接成功 ✓ 已填入默认模型：${models[0]}`);
+      } else if (!models.includes(cur)) {
+        showToast(`连接成功，但模型「${cur}」不在可用列表：${models.slice(0, 6).join('、')}，请修改后再保存`, 'error');
+      } else {
+        showToast(`连接成功 ✓ 模型「${cur}」可用（共 ${models.length} 个）`);
+      }
     } catch (err) {
       showToast(err.message || '测试失败，请检查地址与密钥', 'error');
     } finally {

@@ -4,6 +4,7 @@ const express = require('express');
 const { findCity } = require('../data/cities');
 const { isValidTier, isValidLocation } = require('../lib/hotelPrefs');
 const hotelProvider = require('../providers/hotelProvider');
+const { isBusinessError } = require('../lib/apiError');
 
 const router = express.Router();
 
@@ -55,8 +56,8 @@ router.get('/search', async (req, res, next) => {
       ...result,
     });
   } catch (err) {
-    // 数据源未配置 / 档位未收录属于业务错误，返回 400 并透出原因（引导用户调整条件或去设置页）
-    if (/未配置|未收录/.test(err.message)) {
+    // 数据源未配置 / 档位未收录 / LLM 与高德接口失败属于业务错误，返回 400 并透出原因
+    if (isBusinessError(err.message)) {
       return res.status(400).json({ error: err.message });
     }
     next(err);

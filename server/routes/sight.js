@@ -3,6 +3,7 @@
 const express = require('express');
 const { findCity } = require('../data/cities');
 const sightProvider = require('../providers/sightProvider');
+const { isBusinessError } = require('../lib/apiError');
 
 const router = express.Router();
 
@@ -36,8 +37,8 @@ router.get('/search', async (req, res, next) => {
       ...result,
     });
   } catch (err) {
-    // 数据源未配置 / 查询失败属于业务错误，返回 400 并透出原因（引导用户去设置页）
-    if (/未配置|未收录/.test(err.message)) {
+    // 数据源未配置 / LLM 与高德接口失败等属于业务错误，返回 400 并透出真实原因（引导用户去设置页）
+    if (isBusinessError(err.message)) {
       return res.status(400).json({ error: err.message });
     }
     next(err);
