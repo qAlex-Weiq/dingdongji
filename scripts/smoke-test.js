@@ -49,26 +49,58 @@ function check(name, cond, extra = '') {
   const e4 = await get('/api/nothing');
   check('未知 API 返回 404', e4.status === 404 && e4.body.error);
 
-  // 6. 页面：首页四模块入口
+  // 6. 景点模块：正常查询（内置数据兜底，无需 API Key）
+  const s1 = await get('/api/sight/search?city=' + encodeURIComponent('成都'));
+  const okS1 = s1.status === 200 && s1.body.sights?.length > 0 && s1.body.source && s1.body.count > 0;
+  check('GET /api/sight/search 成都 返回景点列表', okS1,
+    `来源 ${s1.body.source} / ${s1.body.count} 个景点`);
+  const s = s1.body.sights?.[0] || {};
+  check('景点字段完整', ['name', 'rating', 'type', 'ticket', 'openTime', 'address', 'desc', 'score', 'rank'].every((k) => s[k] !== undefined), `No.${s.rank} ${s.name}（score ${s.score}）`);
+  const scores = (s1.body.sights || []).map((x) => x.score);
+  check('景点按综合得分降序排列', scores.every((v, i) => i === 0 || scores[i - 1] >= v));
+
+  // 7. 景点模块：拼音匹配 + 缓存
+  const s2 = await get('/api/sight/search?city=hangzhou');
+  check('拼音匹配城市（hangzhou → 杭州）', s2.status === 200 && s2.body.city === '杭州' && s2.body.sights?.length > 0);
+  const s3 = await get('/api/sight/search?city=hangzhou');
+  check('同城市二次查询命中缓存', s3.status === 200 && s3.body.cached === true);
+
+  // 8. 景点模块：错误处理 + 数据源状态
+  const se1 = await get('/api/sight/search');
+  check('景点查询缺少 city 返回 400', se1.status === 400 && se1.body.error);
+  const se2 = await get('/api/sight/search?city=火星');
+  check('景点查询不支持的城市返回 404', se2.status === 404 && se2.body.error);
+  const se3 = await get('/api/sight/sources');
+  const okSe3 = se3.status === 200 && Array.isArray(se3.body.sources) && se3.body.sources.some((x) => x.name === 'local');
+  check('GET /api/sight/sources 返回数据源状态', okSe3,
+    se3.body.sources?.map((x) => `${x.name}:${x.configured ? 'on' : 'off'}`).join(' '));
+
+  // 9. 页面：首页四模块入口
   const home = await fetch(BASE + '/').then((r) => r.text());
   const cardCount = (home.match(/class="module-card"/g) || []).length;
   check('首页包含 4 个模块入口', home.includes('module-grid') && cardCount === 4, `实际 ${cardCount} 个`);
+  check('首页景点模块状态为可用', /href="\/sight\.html"[\s\S]*?st-live/.test(home));
 
-  // 7. 车票页保留完整查询功能
+  // 10. 车票页保留完整查询功能
   const ticket = await fetch(BASE + '/ticket.html').then((r) => r.text());
   check('车票页包含查询表单与城市补全', ticket.includes('search-form') && ticket.includes('city-list') && ticket.includes('module-nav'));
 
-  // 8. 占位模块页可达
-  for (const p of ['hotel', 'sight', 'food']) {
+  // 11. 景点页为可用页面（非占位）
+  const sight = await fetch(BASE + '/sight.html').then((r) => r.text());
+  check('景点页包含查询表单与结果区', sight.includes('sight-form') && sight.includes('sight-list') && sight.includes('city-list') && !sight.includes('coming-soon'));
+
+  // 12. 占位模块页可达（酒店 / 饭店）
+  for (const p of ['hotel', 'food']) {
     const res = await fetch(`${BASE}/${p}.html`);
     const html = await res.text();
     check(`GET /${p}.html 返回 200 且为占位页`, res.status === 200 && html.includes('coming-soon') && html.includes('开发中'));
   }
 
-  // 9. 静态资源
+  // 13. 静态资源
   const css = await fetch(BASE + '/css/style.css');
   const js = await fetch(BASE + '/js/app.js');
-  check('CSS/JS 静态资源可访问', css.status === 200 && js.status === 200);
+  const sightJs = await fetch(BASE + '/js/sight.js');
+  check('CSS/JS 静态资源可访问', css.status === 200 && js.status === 200 && sightJs.status === 200);
 
   console.log(process.exitCode ? '\n存在失败项' : '\n全部通过');
 })().catch((err) => {

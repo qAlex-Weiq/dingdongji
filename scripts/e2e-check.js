@@ -3,7 +3,7 @@
 /**
  * 无头浏览器端到端验证：
  * 1. 首页四模块入口 → 2. 进入车票模块查询 北京→上海 → 3. 校验机票/火车票渲染与交互
- * 4. 酒店/景点/饭店占位页可达 → 5. 截图存档
+ * 4. 景点模块搜索成都，校验卡片渲染与排序 → 5. 酒店/饭店占位页可达 → 6. 截图存档
  */
 
 const path = require('path');
@@ -91,9 +91,43 @@ const path = require('path');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-mobile.png'), fullPage: false });
+  await page.setViewportSize({ width: 1200, height: 900 });
 
-  // ---- 占位模块页可达 ----
-  for (const p of ['hotel', 'sight', 'food']) {
+  // ---- 景点模块：搜索成都 → 校验渲染与排序 ----
+  await page.goto('http://localhost:3000/sight.html', { waitUntil: 'networkidle' });
+  const sightNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
+  console.log(`景点模块导航高亮: ${sightNav}`);
+
+  await page.fill('#city-input', '成都');
+  await page.click('#search-btn');
+  try {
+    await page.waitForSelector('#sight-list .card:not(.skeleton)', { timeout: 10000 });
+  } catch {
+    console.error('--- 等待景点卡片超时，dump 调试信息 ---');
+    console.error('city-input 值:', await page.inputValue('#city-input'));
+    console.error('结果区可见性:', await page.locator('#result-section').isVisible());
+    console.error('sight-list HTML 前 600 字:');
+    console.error((await page.locator('#sight-list').innerHTML()).slice(0, 600));
+    throw new Error('景点卡片未在 10s 内渲染');
+  }
+  const sightCards = await page.locator('#sight-list .card:not(.skeleton)').count();
+  console.log(`景点卡片: ${sightCards} 张`);
+  const sightSummary = (await page.locator('#sight-summary').innerText()).replace(/\s+/g, ' ');
+  console.log('景点结果摘要:', sightSummary.slice(0, 80));
+
+  const firstSight = await page.locator('#sight-list .card').first().innerText();
+  console.log('首张景点卡片摘要:', firstSight.replace(/\s+/g, ' ').slice(0, 120));
+
+  // 切换排序：评分最高
+  await page.selectOption('#sort-select', 'rating');
+  await page.waitForTimeout(300);
+  const topRated = await page.locator('#sight-list .card .sight-rating').first().innerText();
+  console.log('按评分排序后最高分:', topRated.trim());
+
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-sight.png'), fullPage: false });
+
+  // ---- 占位模块页可达（酒店 / 饭店） ----
+  for (const p of ['hotel', 'food']) {
     await page.goto(`http://localhost:3000/${p}.html`, { waitUntil: 'networkidle' });
     const heading = (await page.locator('.coming-soon h1').innerText()).trim();
     const badge = (await page.locator('.cs-badge').innerText()).trim();

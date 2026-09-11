@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>景点 · 叮咚机旅行规划</title>
-  <meta name="description" content="景点模块：景点推荐与游览路线规划（开发中）">
+  <title>景点搜索 · 叮咚机旅行规划</title>
+  <meta name="description" content="输入城市，一键获取该城市最值得游览的景点，按热门程度与评分综合排序">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -25,24 +25,44 @@
   </header>
 
   <main class="container">
-    <section class="coming-soon">
-      <span class="cs-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-      </span>
-      <h1>景点模块</h1>
-      <span class="cs-badge">开发中</span>
-      <p class="cs-hint">正在规划以下能力：</p>
-      <ul class="cs-list">
-        <li>目的地景点推荐与热度排行</li>
-        <li>按天数与兴趣生成游览路线</li>
-        <li>门票价格与开放时间一览</li>
-      </ul>
-      <div><a class="cs-back" href="/">返回首页</a></div>
+    <section class="hero">
+      <h1>输入城市，发现最值得去的景点</h1>
+      <p>联网搜索城市景点，按热门程度与评分综合排序，门票、开放时间一目了然</p>
+    </section>
+
+    <section class="search-card search-card-sight" aria-label="景点查询">
+      <form id="sight-form" autocomplete="off" novalidate>
+        <div class="field field-city">
+          <label for="city-input">目的地城市</label>
+          <input id="city-input" list="city-list" placeholder="如：成都" maxlength="12" required>
+        </div>
+        <button type="submit" class="search-btn" id="search-btn">搜 索</button>
+      </form>
+      <datalist id="city-list"></datalist>
+    </section>
+
+    <section id="result-section" class="result-section" hidden>
+      <div class="result-toolbar">
+        <div class="sight-summary" id="sight-summary"></div>
+        <div class="sort">
+          <label for="sort-select">排序</label>
+          <select id="sort-select">
+            <option value="score">综合推荐</option>
+            <option value="rating">评分最高</option>
+            <option value="popularity">热度优先</option>
+            <option value="free">免费优先</option>
+          </select>
+        </div>
+      </div>
+      <div id="sight-list" class="list sight-list"></div>
     </section>
   </main>
 
   <footer class="footer">
-    <div class="container">各模块数据为演示数据，仅用于框架演示 · 叮咚机旅行规划</div>
+    <div class="container">景点信息仅供参考，出行前请以景区官方公告为准 · 叮咚机旅行规划</div>
   </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/sight.js"></script>
 </body>
 </html>

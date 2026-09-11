@@ -2,8 +2,10 @@
 
 const path = require('path');
 const express = require('express');
+require('./lib/env'); // 加载根目录 .env（必须在读取环境变量的模块之前）
 const citiesRouter = require('./routes/cities');
 const ticketRouter = require('./routes/ticket');
+const sightRouter = require('./routes/sight');
 
 function createApp() {
   const app = express();
@@ -14,8 +16,10 @@ function createApp() {
   // 共享：GET /api/cities（城市自动补全，各模块通用）
   app.use('/api', citiesRouter);
   // 车票模块：GET /api/ticket/search（机票 + 火车票）
-  // 后续模块按同样方式挂载：/api/hotel、/api/sight、/api/food
+  // 后续模块按同样方式挂载：/api/hotel、/api/food
   app.use('/api/ticket', ticketRouter);
+  // 景点模块：GET /api/sight/search（联网搜索 + 综合排序）
+  app.use('/api/sight', sightRouter);
 
   app.use('/api', (req, res) => res.status(404).json({ error: '接口不存在' }));
 

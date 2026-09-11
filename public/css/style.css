@@ -618,6 +618,143 @@ button { font-family: inherit; }
 
 .cs-back:hover { background: var(--primary-strong); }
 
+/* ---------- 景点模块 ---------- */
+
+.search-card-sight #sight-form {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+
+.field-city { min-width: 0; }
+
+.sight-summary {
+  font-size: 13px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sight-summary b { color: var(--text-2); font-weight: 600; font-size: 14px; }
+
+.source-badge {
+  font-size: 11.5px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.sight-card { grid-template-columns: auto 1fr auto; gap: 14px; }
+
+.sight-rank {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #eef0f4;
+  color: var(--text-3);
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.sight-rank.rank-top {
+  background: linear-gradient(135deg, #f59f00, #e8590c);
+  color: #fff;
+}
+
+.sight-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #e8590c;
+  font-weight: 600;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sight-rating svg { width: 13px; height: 13px; }
+
+.tag-rec {
+  font-size: 11px;
+  color: #d0342c;
+  background: rgba(208, 52, 44, 0.08);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.sight-desc {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.sight-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 10px;
+}
+
+.sight-meta-item {
+  font-size: 12.5px;
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sight-meta-item i {
+  font-style: normal;
+  color: var(--text-3);
+  flex: none;
+}
+
+.sight-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+.sight-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 86px;
+}
+
+.sight-score { text-align: center; }
+
+.sight-score em {
+  display: block;
+  font-style: normal;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sight-score span { font-size: 11px; color: var(--text-3); }
+
+.tag-free {
+  font-size: 11px;
+  color: var(--green);
+  background: rgba(43, 138, 62, 0.09);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.sk-rank { width: 30px; height: 30px; border-radius: 9px; flex: none; }
+
+.sk-line { display: block; width: 90%; height: 12px; }
+.sk-line.short { width: 55%; }
+
 /* ---------- 响应式 ---------- */
 
 @media (max-width: 760px) {
@@ -657,4 +794,18 @@ button { font-family: inherit; }
   .module-grid { grid-template-columns: 1fr; }
   .module-nav a { padding: 6px 8px; font-size: 13px; }
   .brand-name i { display: none; }
+
+  /* 景点模块移动端适配 */
+  .search-card-sight #sight-form { grid-template-columns: 1fr; }
+
+  .sight-card { grid-template-columns: auto 1fr; }
+
+  .sight-side {
+    grid-column: 1 / -1;
+    border-top: 1px dashed #e4e7ee;
+    flex-direction: row;
+    justify-content: space-between;
+    padding-top: 10px;
+    margin-top: 2px;
+  }
 }
