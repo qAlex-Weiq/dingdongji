@@ -11,6 +11,8 @@
   const els = {
     form: $('#sight-form'),
     city: $('#city-input'),
+    source: $('#source-select'),
+    hint: $('#source-hint'),
     searchBtn: $('#search-btn'),
     resultSection: $('#result-section'),
     summary: $('#sight-summary'),
@@ -21,8 +23,9 @@
   };
 
   const state = {
-    sort: 'score', // 'score' | 'rating' | 'popularity' | 'free'
-    data: null,    // { city, source, sourceLabel, count, sights }
+    sort: 'score',  // 'score' | 'rating' | 'popularity' | 'free'
+    source: 'auto', // 'auto' | 'local' | 'llm'
+    data: null,     // { city, source, sourceLabel, count, sights }
     loading: false,
   };
 
@@ -44,6 +47,16 @@
       state.sort = els.sort.value;
       renderList();
     });
+    els.source.addEventListener('change', () => {
+      state.source = els.source.value;
+      updateHint();
+    });
+    updateHint();
+  }
+
+  /** AI 联网搜索较慢，切换到该选项时显示提示 */
+  function updateHint() {
+    els.hint.hidden = state.source !== 'llm';
   }
 
   async function loadCities() {
@@ -77,7 +90,7 @@
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({ city });
+      const params = new URLSearchParams({ city, source: state.source });
       const res = await fetch(`/api/sight/search?${params.toString()}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || `查询失败（${res.status}）`);
@@ -88,7 +101,11 @@
       els.resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       if (!state.data) els.resultSection.hidden = true;
-      showToast(err.message || '网络异常，请稍后重试', 'error');
+      // 数据源未配置时引导用户去设置页
+      const msg = /未配置/.test(err.message || '')
+        ? `${err.message}（点右上角「设置」填写后即可使用）`
+        : err.message || '网络异常，请稍后重试';
+      showToast(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -97,7 +114,10 @@
   function setLoading(loading) {
     state.loading = loading;
     els.searchBtn.disabled = loading;
-    els.searchBtn.textContent = loading ? '搜索中…' : '搜 索';
+    // AI 联网搜索耗时较长，按钮文案区分提示
+    els.searchBtn.textContent = loading
+      ? (state.source === 'llm' ? 'AI 生成中…' : '搜索中…')
+      : '搜 索';
     if (loading) {
       els.resultSection.hidden = false;
       renderSkeleton();

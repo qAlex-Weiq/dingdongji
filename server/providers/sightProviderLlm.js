@@ -5,13 +5,13 @@
  * 兼容 OpenAI Chat Completions 协议，默认对接智谱 GLM（glm-4-flash 免费模型）。
  * 通过提示词让模型输出结构化 JSON 景点列表。
  *
- * 需要在 .env 中配置：
- *   LLM_API_KEY   - API Key（必填）
- *   LLM_BASE_URL  - 接口地址（默认智谱 https://open.bigmodel.cn/api/paas/v4）
- *   LLM_MODEL     - 模型名（默认 glm-4-flash）
+ * 配置来源（优先级从高到低）：
+ *   1. 设置页面保存的 .settings.json
+ *   2. 环境变量 .env：LLM_API_KEY / LLM_BASE_URL / LLM_MODEL
  */
 
 const { findCity } = require('../data/cities');
+const settings = require('../lib/settings');
 
 const meta = {
   name: 'llm',
@@ -19,16 +19,18 @@ const meta = {
   requiresKey: 'LLM_API_KEY',
 };
 
+/** 获取生效配置（设置页优先，环境变量兜底） */
+function getConfig() {
+  const eff = settings.getEffective();
+  return {
+    baseUrl: (eff.llmBaseUrl || '').replace(/\/+$/, ''),
+    apiKey: (eff.llmApiKey || '').trim(),
+    model: eff.llmModel || 'glm-4-flash',
+  };
+}
+
 function isConfigured() {
-  return Boolean(process.env.LLM_API_KEY && process.env.LLM_API_KEY.trim());
-}
-
-function getBaseUrl() {
-  return (process.env.LLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, '');
-}
-
-function getModel() {
-  return process.env.LLM_MODEL || 'glm-4-flash';
+  return Boolean(getConfig().apiKey);
 }
 
 async function fetchWithTimeout(url, options, timeoutMs = 90000) {
@@ -54,29 +56,60 @@ function buildPrompt(cityName) {
 5. 门票 ticket、开放时间 openTime、建议游览时长 visitHours 尽量准确，不确定时写"以现场公示为准"；
 6. 简介 desc 控制在 40 字以内，突出亮点。
 
-只输出 JSON，不要任何解释文字，格式如下：
-[
-  {
-    "name": "景点名称",
-    "rating": 4.8,
-    "popularity": 95,
-    "type": "分类（如 历史古迹/自然风光/博物馆/主题乐园/城市地标）",
-    "ticket": "门票信息",
-    "openTime": "开放时间",
-    "visitHours": "建议时长",
-    "address": "大致地址",
-    "desc": "一句话简介",
-    "tags": ["标签1", "标签2"]
-  }
-]`;
+只输出一个 JSON 对象（json 模式），不要任何解释文字，格式如下：
+{
+  "sights": [
+    {
+      "name": "景点名称",
+      "rating": 4.8,
+      "popularity": 95,
+      "type": "分类（如 历史古迹/自然风光/博物馆/主题乐园/城市地标）",
+      "ticket": "门票信息",
+      "openTime": "开放时间",
+      "visitHours": "建议时长",
+      "address": "大致地址",
+      "desc": "一句话简介",
+      "tags": ["标签1", "标签2"]
+    }
+  ]
+}
+其中 sights 数组必须包含 8-10 个景点对象，禁止只输出单个景点。`;
 }
 
-/** 从模型输出中提取 JSON 数组（容忍 markdown 代码块包裹） */
+/**
+ * 从模型输出中提取 JSON 数组。
+ * 兼容多种输出形态：
+ *   1. 裸数组 [...]（理想情况）
+ *   2. markdown 代码块包裹 ```json [...] ```
+ *   3. 对象包裹（json_object 模式下模型必须输出对象）：
+ *      {"name": "json_object", "data": [...]} / {"sights": [...]} 等
+ *      → 取第一个「元素为对象且含 name 类字段」的数组
+ *   4. 兜底：截取第一个 [ 到最后一个 ] 之间再解析
+ */
 function extractJsonArray(text) {
   if (!text) return null;
-  // 去掉 ```json ... ``` 包裹
   const stripped = text.replace(/```(?:json)?/gi, '').trim();
-  // 找到第一个 [ 到最后一个 ] 之间的内容
+
+  // 整体作为 JSON 解析
+  try {
+    const parsed = JSON.parse(stripped);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') {
+      const arrays = Object.values(parsed).filter((v) => Array.isArray(v) && v.length > 0);
+      // 优先取元素为对象且含 name 类字段的数组（跳过 tags 等字符串数组）
+      const good = arrays.find(
+        (a) => a[0] && typeof a[0] === 'object' && (a[0].name || a[0].名称 || a[0].景点名称)
+      );
+      if (good) return good;
+      if (arrays.length > 0) return arrays[0];
+      // 模型偶发只输出单个景点对象（无包裹数组）：包成数组返回
+      if (pick(parsed, 'name', '名称', '景点名称')) return [parsed];
+    }
+  } catch {
+    /* 整体解析失败，走兜底截取 */
+  }
+
+  // 兜底：第一个 [ 到最后一个 ]
   const start = stripped.indexOf('[');
   const end = stripped.lastIndexOf(']');
   if (start === -1 || end === -1 || end <= start) return null;
@@ -87,22 +120,34 @@ function extractJsonArray(text) {
   }
 }
 
+/** 从条目中按别名取字段（兼容模型偶发使用中文键名） */
+function pick(item, ...keys) {
+  for (const k of keys) {
+    const v = item[k];
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return undefined;
+}
+
 /** 校验并归一化单条景点数据 */
 function normalizeItem(item) {
-  if (!item || typeof item !== 'object' || !item.name) return null;
-  const rating = Number(item.rating);
-  const popularity = Number(item.popularity);
+  if (!item || typeof item !== 'object') return null;
+  const name = pick(item, 'name', '名称', '景点名称');
+  if (!name) return null;
+  const rating = Number(pick(item, 'rating', '评分'));
+  const popularity = Number(pick(item, 'popularity', '热度'));
+  const tags = pick(item, 'tags', '标签');
   return {
-    name: String(item.name),
+    name: String(name),
     rating: Number.isFinite(rating) ? Math.min(5, Math.max(0, rating)) : null,
     popularity: Number.isFinite(popularity) ? Math.min(100, Math.max(0, Math.round(popularity))) : null,
-    type: item.type ? String(item.type) : '景点',
-    ticket: item.ticket ? String(item.ticket) : '以现场公示为准',
-    openTime: item.openTime ? String(item.openTime) : '以现场公示为准',
-    visitHours: item.visitHours ? String(item.visitHours) : null,
-    address: item.address ? String(item.address) : '',
-    desc: item.desc ? String(item.desc) : '',
-    tags: Array.isArray(item.tags) ? item.tags.map(String).slice(0, 5) : [],
+    type: String(pick(item, 'type', '类型') || '景点'),
+    ticket: String(pick(item, 'ticket', '门票') || '以现场公示为准'),
+    openTime: String(pick(item, 'openTime', '开放时间') || '以现场公示为准'),
+    visitHours: pick(item, 'visitHours', '建议时长', '游览时长') ? String(pick(item, 'visitHours', '建议时长', '游览时长')) : null,
+    address: String(pick(item, 'address', '地址') || ''),
+    desc: String(pick(item, 'desc', '简介', '描述') || ''),
+    tags: Array.isArray(tags) ? tags.map(String).slice(0, 5) : [],
     recommended: false,
     photo: null,
     location: null,
@@ -115,14 +160,15 @@ function normalizeItem(item) {
  * @returns {Promise<Array>} 景点数组
  */
 async function searchSights(cityName) {
-  if (!isConfigured()) {
-    throw new Error('未配置 LLM_API_KEY');
+  const { baseUrl, apiKey, model } = getConfig();
+  if (!apiKey) {
+    throw new Error('AI 数据源未配置 API Key，请先在「设置」页面配置');
   }
   const city = findCity(cityName);
   const region = city ? city.name : cityName;
 
   const body = {
-    model: getModel(),
+    model,
     messages: [
       {
         role: 'user',
@@ -134,11 +180,11 @@ async function searchSights(cityName) {
     response_format: { type: 'json_object' },
   };
 
-  const res = await fetchWithTimeout(`${getBaseUrl()}/chat/completions`, {
+  const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.LLM_API_KEY.trim()}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
   });
@@ -159,12 +205,14 @@ async function searchSights(cityName) {
 
   const arr = extractJsonArray(content);
   if (!Array.isArray(arr) || arr.length === 0) {
-    throw new Error('LLM 输出无法解析为景点列表');
+    throw new Error(`LLM 输出无法解析为景点列表（原始输出前 200 字：${String(content).slice(0, 200)}）`);
   }
 
   const sights = arr.map(normalizeItem).filter(Boolean);
   if (sights.length === 0) {
-    throw new Error('LLM 输出的景点数据无效');
+    const first = arr[0];
+    const shape = first && typeof first === 'object' ? `对象，键：${Object.keys(first).join('/')}` : typeof first;
+    throw new Error(`LLM 输出的景点数据无效（共 ${arr.length} 条，首条为${shape}；原始输出前 200 字：${String(content).slice(0, 200)}）`);
   }
   return sights;
 }

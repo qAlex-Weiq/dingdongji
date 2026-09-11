@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置 · 叮咚机旅行规划</title>
+  <meta name="description" content="配置 AI 联网搜索的接口地址与 API Key，保存在服务端本地，不会进入代码仓库">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">叮</span>
+        <span class="brand-name">叮咚机<i>旅行规划</i></span>
+      </a>
+      <nav class="module-nav" aria-label="功能模块">
+        <a href="/ticket.html">车票</a>
+        <a href="/hotel.html">酒店</a>
+        <a href="/sight.html">景点</a>
+        <a href="/food.html">饭店</a>
+        <a href="/settings.html" class="is-active nav-settings">设置</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>设置</h1>
+      <p>配置 AI 联网搜索的接口与密钥。配置保存在服务端本地文件（.settings.json），已被 gitignore 保护，不会进入代码仓库</p>
+    </section>
+
+    <section class="search-card settings-card" aria-label="数据源配置">
+      <form id="settings-form" autocomplete="off" novalidate>
+        <h2 class="settings-section-title">AI 联网搜索（LLM）</h2>
+        <p class="settings-section-desc">兼容 OpenAI Chat Completions 协议的任意接口。配置后，景点页即可选择「AI 联网搜索」。</p>
+
+        <div class="field field-block">
+          <label for="llm-url">接口地址</label>
+          <input id="llm-url" type="url" placeholder="如：https://open.bigmodel.cn/api/paas/v4" maxlength="200">
+        </div>
+
+        <div class="field field-block">
+          <label for="llm-key">API Key</label>
+          <input id="llm-key" type="password" placeholder="未配置，请输入 API Key" maxlength="300" autocomplete="new-password">
+          <p class="field-note" id="llm-key-note"></p>
+        </div>
+
+        <div class="field field-block">
+          <label for="llm-model">模型名</label>
+          <input id="llm-model" placeholder="如：glm-4-flash / deepseek-v4-flash" maxlength="100">
+        </div>
+
+        <h2 class="settings-section-title">高德地图（可选）</h2>
+        <p class="settings-section-desc">配置后「自动」模式将优先使用高德真实 POI 数据（含评分、照片）。<a href="https://console.amap.com" target="_blank" rel="noopener">申请 Web 服务 Key</a></p>
+
+        <div class="field field-block">
+          <label for="amap-key">高德 Key</label>
+          <input id="amap-key" type="password" placeholder="未配置（可选）" maxlength="100" autocomplete="new-password">
+          <p class="field-note" id="amap-key-note"></p>
+        </div>
+
+        <div class="settings-actions">
+          <button type="submit" class="search-btn" id="save-btn">保存配置</button>
+          <button type="button" class="btn-ghost" id="test-btn">测试连接</button>
+        </div>
+      </form>
+
+      <div id="settings-status" class="settings-status" aria-live="polite"></div>
+    </section>
+
+    <section class="settings-tips">
+      <h2>说明</h2>
+      <ul>
+        <li>配置优先级：本页保存的配置 &gt; 服务端 .env 环境变量 &gt; 默认值。</li>
+        <li>API Key 仅保存在服务端本地，接口返回时自动脱敏（如 <code>sk-KA***xxxx</code>），不会明文回显。</li>
+        <li>保存后景点缓存会自动清空，下次搜索立即使用新配置。</li>
+        <li>AI 联网搜索需实时生成内容，约需 10~40 秒；本地数据秒开但仅覆盖 25 个热门城市。</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">配置文件 .settings.json 存于服务端本地，已被 .gitignore 忽略 · 叮咚机旅行规划</div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/settings.js"></script>
+</body>
+</html>

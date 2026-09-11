@@ -20,6 +20,7 @@
         <a href="/hotel.html">酒店</a>
         <a href="/sight.html" class="is-active">景点</a>
         <a href="/food.html">饭店</a>
+        <a href="/settings.html" class="nav-settings">设置</a>
       </nav>
     </div>
   </header>
@@ -36,9 +37,20 @@
           <label for="city-input">目的地城市</label>
           <input id="city-input" list="city-list" placeholder="如：成都" maxlength="12" required>
         </div>
+        <div class="field field-source">
+          <label for="source-select">数据来源</label>
+          <select id="source-select">
+            <option value="auto">自动（推荐）</option>
+            <option value="local">本地数据（秒开）</option>
+            <option value="llm">AI 联网搜索（较慢）</option>
+          </select>
+        </div>
         <button type="submit" class="search-btn" id="search-btn">搜 索</button>
       </form>
       <datalist id="city-list"></datalist>
+      <p id="source-hint" class="source-hint" hidden>
+        AI 联网搜索需实时生成内容，约需 10~40 秒，请耐心等待；如需秒开结果，可选择「本地数据」。
+      </p>
     </section>
 
     <section id="result-section" class="result-section" hidden>

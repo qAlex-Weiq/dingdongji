@@ -6,6 +6,7 @@ require('./lib/env'); // 加载根目录 .env（必须在读取环境变量的�
 const citiesRouter = require('./routes/cities');
 const ticketRouter = require('./routes/ticket');
 const sightRouter = require('./routes/sight');
+const settingsRouter = require('./routes/settings');
 
 function createApp() {
   const app = express();
@@ -20,6 +21,8 @@ function createApp() {
   app.use('/api/ticket', ticketRouter);
   // 景点模块：GET /api/sight/search（联网搜索 + 综合排序）
   app.use('/api/sight', sightRouter);
+  // 设置：GET/PUT /api/settings、POST /api/settings/test
+  app.use('/api/settings', settingsRouter);
 
   app.use('/api', (req, res) => res.status(404).json({ error: '接口不存在' }));
 

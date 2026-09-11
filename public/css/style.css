@@ -808,4 +808,196 @@ button { font-family: inherit; }
     padding-top: 10px;
     margin-top: 2px;
   }
+
+  /* 设置页移动端适配 */
+  .settings-actions { flex-direction: column; }
+  .settings-actions .search-btn,
+  .settings-actions .btn-ghost { width: 100%; }
 }
+
+/* ---------- 数据源选择（景点页） ---------- */
+
+.field select {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  background: #f7f8fa;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 34px;
+}
+
+.field select:focus {
+  border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(29, 79, 145, 0.12);
+}
+
+.search-card-sight #sight-form {
+  grid-template-columns: minmax(0, 1fr) 190px auto;
+  align-items: end;
+}
+
+.field-source { min-width: 0; }
+
+.source-hint {
+  margin: 12px 2px 0;
+  padding: 9px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #92600a;
+  background: #fdf6e3;
+  border: 1px solid #f0dfa8;
+  border-radius: 10px;
+}
+
+/* ---------- 设置页 ---------- */
+
+.settings-card { max-width: 720px; }
+
+.settings-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+  padding-left: 10px;
+  border-left: 3px solid var(--primary);
+}
+
+.settings-section-desc {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+
+.settings-section-desc a { color: var(--primary); }
+
+.settings-section-title + .settings-section-desc { margin-top: 6px; }
+
+.settings-card #settings-form { display: block; }
+
+.settings-card .field-block { margin-bottom: 16px; }
+
+.field-note {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+  align-items: center;
+}
+
+.btn-ghost {
+  height: 44px;
+  padding: 0 22px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--primary);
+  background: #fff;
+  border: 1.5px solid var(--primary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.btn-ghost:hover { background: rgba(29, 79, 145, 0.06); }
+.btn-ghost:active { transform: scale(0.98); }
+.btn-ghost:disabled { opacity: 0.65; cursor: default; }
+
+.settings-status {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed #e4e7ee;
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+
+.status-line:last-child { margin-bottom: 0; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  color: #1a7f37;
+  background: #e6f4ea;
+  border: 1px solid #b7dfc3;
+}
+
+.badge-off {
+  color: #9a6700;
+  background: #fff8e1;
+  border: 1px solid #f0dfa8;
+}
+
+.status-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  word-break: break-all;
+}
+
+.st-err { color: #c0392b; font-size: 13px; }
+
+.settings-tips {
+  max-width: 720px;
+  margin: 18px auto 0;
+  padding: 16px 20px;
+  background: #f7f8fa;
+  border-radius: 14px;
+}
+
+.settings-tips h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin: 0 0 8px;
+  letter-spacing: 1px;
+}
+
+.settings-tips ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.9;
+}
+
+.settings-tips code {
+  padding: 1px 5px;
+  font-size: 12px;
+  background: #eef1f6;
+  border-radius: 4px;
+  color: var(--text-2);
+}
+
+/* 导航「设置」入口稍弱化，与业务模块区分 */
+.module-nav .nav-settings { color: var(--text-3); }
+.module-nav .nav-settings:hover,
+.module-nav .nav-settings.is-active { color: var(--primary); }

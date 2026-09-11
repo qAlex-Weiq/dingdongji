@@ -4,7 +4,10 @@
  * 高德地图 POI 景点数据源（推荐）。
  * 使用高德 Web 服务 API v5 place/text 搜索城市景点：
  *   https://restapi.amap.com/v5/place/text
- * 需要在 .env 中配置 AMAP_KEY（Web 服务类型 Key，免费额度充足）。
+ *
+ * 配置来源（优先级从高到低）：
+ *   1. 设置页面保存的 .settings.json（amapKey 字段）
+ *   2. 环境变量 .env：AMAP_KEY（Web 服务类型 Key，免费额度充足）
  *
  * v5 特性：
  *   - show_fields=business 可返回评分 rating 与人均消费 cost
@@ -13,6 +16,7 @@
  */
 
 const { findCity } = require('../data/cities');
+const settings = require('../lib/settings');
 
 const AMAP_V5_URL = 'https://restapi.amap.com/v5/place/text';
 
@@ -34,9 +38,14 @@ const meta = {
   requiresKey: 'AMAP_KEY',
 };
 
+/** 获取生效的高德 Key（设置页优先，环境变量兜底） */
+function getAmapKey() {
+  return (settings.getEffective().amapKey || '').trim();
+}
+
 /** 是否可用（配置了 AMAP_KEY 即启用） */
 function isConfigured() {
-  return Boolean(process.env.AMAP_KEY && process.env.AMAP_KEY.trim());
+  return Boolean(getAmapKey());
 }
 
 /** 简易 fetch 带超时（Node 18+ 全局 fetch） */
@@ -104,14 +113,15 @@ function normalizePoi(poi) {
  * @returns {Promise<Array>} 景点数组（已按综合热度排序，由上层处理）
  */
 async function searchSights(cityName) {
-  if (!isConfigured()) {
-    throw new Error('未配置 AMAP_KEY');
+  const amapKey = getAmapKey();
+  if (!amapKey) {
+    throw new Error('高德数据源未配置 Key，请先在「设置」页面配置');
   }
   const city = findCity(cityName);
   const region = city ? city.name : cityName;
 
   const params = new URLSearchParams({
-    key: process.env.AMAP_KEY.trim(),
+    key: amapKey,
     keywords: '景点',
     types: SIGHT_TYPES,
     region: region,

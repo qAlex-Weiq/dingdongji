@@ -93,11 +93,24 @@ const path = require('path');
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-mobile.png'), fullPage: false });
   await page.setViewportSize({ width: 1200, height: 900 });
 
-  // ---- 景点模块：搜索成都 → 校验渲染与排序 ----
+  // ---- 景点模块：数据源选择 + 搜索成都 → 校验渲染与排序 ----
   await page.goto('http://localhost:3000/sight.html', { waitUntil: 'networkidle' });
   const sightNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
   console.log(`景点模块导航高亮: ${sightNav}`);
 
+  // 数据源选择器：默认 auto 时无提示，切到 llm 显示慢速提示，切回 local 隐藏
+  const hintHiddenOnAuto = !(await page.locator('#source-hint').isVisible());
+  await page.selectOption('#source-select', 'llm');
+  const hintVisibleOnLlm = await page.locator('#source-hint').isVisible();
+  const hintText = (await page.locator('#source-hint').innerText()).replace(/\s+/g, ' ');
+  console.log(`AI 慢速提示（llm 时显示）: ${hintVisibleOnLlm ? '可见' : '不可见'} - ${hintText.slice(0, 50)}`);
+  await page.selectOption('#source-select', 'local');
+  const hintHiddenOnLocal = !(await page.locator('#source-hint').isVisible());
+  if (!hintHiddenOnAuto || !hintVisibleOnLlm || !hintHiddenOnLocal) {
+    throw new Error('数据源慢速提示显隐逻辑异常');
+  }
+
+  // 使用本地数据源搜索（秒开，结果确定）
   await page.fill('#city-input', '成都');
   await page.click('#search-btn');
   try {
@@ -105,15 +118,17 @@ const path = require('path');
   } catch {
     console.error('--- 等待景点卡片超时，dump 调试信息 ---');
     console.error('city-input 值:', await page.inputValue('#city-input'));
+    console.error('source-select 值:', await page.inputValue('#source-select'));
     console.error('结果区可见性:', await page.locator('#result-section').isVisible());
     console.error('sight-list HTML 前 600 字:');
     console.error((await page.locator('#sight-list').innerHTML()).slice(0, 600));
     throw new Error('景点卡片未在 10s 内渲染');
   }
   const sightCards = await page.locator('#sight-list .card:not(.skeleton)').count();
-  console.log(`景点卡片: ${sightCards} 张`);
+  console.log(`景点卡片（本地数据源）: ${sightCards} 张`);
   const sightSummary = (await page.locator('#sight-summary').innerText()).replace(/\s+/g, ' ');
   console.log('景点结果摘要:', sightSummary.slice(0, 80));
+  if (!sightSummary.includes('本地')) throw new Error('摘要未标注本地数据来源');
 
   const firstSight = await page.locator('#sight-list .card').first().innerText();
   console.log('首张景点卡片摘要:', firstSight.replace(/\s+/g, ' ').slice(0, 120));
@@ -125,6 +140,20 @@ const path = require('path');
   console.log('按评分排序后最高分:', topRated.trim());
 
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-sight.png'), fullPage: false });
+
+  // ---- 设置页：表单加载与状态展示 ----
+  await page.goto('http://localhost:3000/settings.html', { waitUntil: 'networkidle' });
+  const settingsNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
+  console.log(`设置页导航高亮: ${settingsNav}`);
+  const llmUrlValue = await page.inputValue('#llm-url');
+  const llmModelValue = await page.inputValue('#llm-model');
+  const keyPlaceholder = await page.getAttribute('#llm-key', 'placeholder');
+  console.log(`设置页加载: 接口=${llmUrlValue.slice(0, 40)} 模型=${llmModelValue}`);
+  console.log(`API Key 占位提示: ${keyPlaceholder}`);
+  if (!llmUrlValue || !llmModelValue) throw new Error('设置页未加载当前生效配置');
+  const statusText = (await page.locator('#settings-status').innerText()).replace(/\s+/g, ' ');
+  console.log(`数据源状态: ${statusText.slice(0, 80)}`);
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-settings.png'), fullPage: false });
 
   // ---- 占位模块页可达（酒店 / 饭店） ----
   for (const p of ['hotel', 'food']) {

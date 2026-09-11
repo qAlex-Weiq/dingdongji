@@ -8,10 +8,13 @@
  *   2. llm   - LLM Agent 生成（需 LLM_API_KEY，可选联网模型）
  *   3. local - 内置 25 城数据集（离线兜底，无需任何 Key）
  *
- * 可通过环境变量 SIGHT_SOURCE 强制指定：amap / llm / local
+ * 数据源选择（优先级从高到低）：
+ *   1. 调用方显式指定 options.source（前端「数据来源」下拉框）
+ *   2. 环境变量 SIGHT_SOURCE 强制指定：amap / llm / local
+ *   3. 自动降级链
  *
  * 其他特性：
- *   - 内存缓存（TTL 30 分钟，避免重复请求外部接口）
+ *   - 内存缓存（TTL 30 分钟，key 含数据源，避免不同来源结果串台）
  *   - 熔断：某数据源连续失败 3 次后暂停使用 10 分钟，直接降级
  *   - 综合排序：score = 热度(60%) + 评分(40%)，热门程度与口碑兼顾
  */
@@ -26,7 +29,7 @@ const SOURCES = [amap, llm];
 
 /** 内置数据源（本地，永不失败） */
 const localSource = {
-  meta: { name: 'local', label: '内置数据', requiresKey: null },
+  meta: { name: 'local', label: '本地数据', requiresKey: null },
   isConfigured: () => true,
   async searchSights(cityName) {
     const city = findCity(cityName);
@@ -43,7 +46,7 @@ const localSource = {
 // ---------------------------------------------------------------------------
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 分钟
-const cache = new Map(); // key: city名 -> { sights, expireAt }
+const cache = new Map(); // key: "城市|数据源" -> { sights, expireAt }
 
 function cacheGet(key) {
   const entry = cache.get(key);
@@ -57,6 +60,11 @@ function cacheGet(key) {
 
 function cacheSet(key, sights) {
   cache.set(key, { sights, expireAt: Date.now() + CACHE_TTL_MS });
+}
+
+/** 清空全部缓存（设置更新后调用，避免旧数据源结果残留） */
+function clearCache() {
+  cache.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -126,12 +134,17 @@ function rankSights(sights) {
 // 主入口
 // ---------------------------------------------------------------------------
 
-/** 解析强制指定的数据源 */
+/** 按名称查找数据源（local 为内置兜底） */
+function findSourceByName(name) {
+  if (name === 'local') return localSource;
+  return SOURCES.find((s) => s.meta.name === name) || null;
+}
+
+/** 解析强制指定的数据源（环境变量级别） */
 function getForcedSource() {
   const forced = (process.env.SIGHT_SOURCE || '').trim().toLowerCase();
   if (!forced) return null;
-  if (forced === 'local') return localSource;
-  return SOURCES.find((s) => s.meta.name === forced) || null;
+  return findSourceByName(forced);
 }
 
 /** 列出各数据源可用性（供前端展示与诊断） */
@@ -152,21 +165,53 @@ function getSourceStatus() {
 }
 
 /**
- * 搜索城市景点（带缓存 + 降级链）。
+ * 搜索城市景点（带缓存 + 数据源选择）。
  * @param {string} cityName 城市名（支持中文或拼音，内部会归一化）
+ * @param {object} [options]
+ * @param {string} [options.source] 数据源：'auto'（默认，降级链）/ 'local' / 'llm' / 'amap'
+ *   显式指定单一数据源时不降级，失败直接抛错（用户明确选择时应得到真实反馈）
  * @returns {Promise<{city: string, source: string, sourceLabel: string, count: number, sights: Array}>}
  */
-async function searchSights(cityName) {
+async function searchSights(cityName, options = {}) {
   const city = findCity(cityName);
   const canonicalName = city ? city.name : cityName;
 
-  // 命中缓存直接返回
-  const cached = cacheGet(canonicalName);
+  // 归一化数据源参数
+  const requested = String(options.source || 'auto').trim().toLowerCase();
+  const source = ['auto', 'local', 'llm', 'amap'].includes(requested) ? requested : 'auto';
+
+  // 命中缓存直接返回（缓存 key 含数据源，不同来源互不串台）
+  const cacheKey = `${canonicalName}|${source}`;
+  const cached = cacheGet(cacheKey);
   if (cached) {
     return { ...cached, cached: true };
   }
 
-  // 组装尝试顺序：强制指定 > 降级链
+  // ---- 显式指定单一数据源：不降级，失败抛错 ----
+  if (source !== 'auto') {
+    const src = findSourceByName(source);
+    if (!src) {
+      throw new Error(`未知数据源: ${source}`);
+    }
+    if (src !== localSource && !src.isConfigured()) {
+      throw new Error(`${src.meta.label}未配置 API Key，请先在「设置」页面配置`);
+    }
+    const raw = await src.searchSights(canonicalName);
+    const sights = rankSights(raw);
+    const result = {
+      city: canonicalName,
+      source: src.meta.name,
+      sourceLabel: src.meta.label,
+      count: sights.length,
+      sights,
+      cached: false,
+    };
+    recordSuccess(src.meta.name);
+    cacheSet(cacheKey, result);
+    return result;
+  }
+
+  // ---- auto：组装尝试顺序（环境变量强制 > 降级链） ----
   const forced = getForcedSource();
   const chain = [];
   if (forced) {
@@ -179,28 +224,28 @@ async function searchSights(cityName) {
   }
 
   const errors = [];
-  for (const source of chain) {
+  for (const src of chain) {
     try {
-      const raw = await source.searchSights(canonicalName);
+      const raw = await src.searchSights(canonicalName);
       const sights = rankSights(raw);
       const result = {
         city: canonicalName,
-        source: source.meta.name,
-        sourceLabel: source.meta.label,
+        source: src.meta.name,
+        sourceLabel: src.meta.label,
         count: sights.length,
         sights,
         cached: false,
       };
-      recordSuccess(source.meta.name);
-      cacheSet(canonicalName, result);
+      recordSuccess(src.meta.name);
+      cacheSet(cacheKey, result);
       return result;
     } catch (err) {
-      recordFailure(source.meta.name);
-      errors.push(`[${source.meta.name}] ${err.message}`);
+      recordFailure(src.meta.name);
+      errors.push(`[${src.meta.name}] ${err.message}`);
     }
   }
 
   throw new Error(`所有景点数据源均失败: ${errors.join(' | ')}`);
 }
 
-module.exports = { searchSights, getSourceStatus };
+module.exports = { searchSights, getSourceStatus, clearCache };
