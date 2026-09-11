@@ -50,6 +50,7 @@
   }
 
   function showError(msg) {
+    LLMProgress.stop();
     emptyTip.hidden = false;
     emptyTip.textContent = msg;
     emptyTip.className = 'empty-tip error';
@@ -88,6 +89,18 @@
   }
   function loadingText(fallback) {
     return sourceSelect && sourceSelect.value === 'llm' ? 'AI 生成中…' : fallback;
+  }
+
+  /** LLM 慢速查询：显示分阶段进度横幅；其余数据源显示原加载文案 */
+  function llmLoading(text) {
+    if (sourceSelect.value === 'llm') {
+      emptyTip.hidden = true;
+      LLMProgress.start(emptyTip.parentElement, emptyTip);
+    } else {
+      emptyTip.hidden = false;
+      emptyTip.textContent = text;
+      emptyTip.className = 'empty-tip';
+    }
   }
 
   function setTab(tab) {
@@ -176,9 +189,7 @@
 
     setTab('specialty');
     resultSection.hidden = true;
-    emptyTip.hidden = false;
-    emptyTip.textContent = loadingText('加载中…');
-    emptyTip.className = 'empty-tip';
+    llmLoading('加载中…');
 
     try {
       const url = new URL('/api/food/specialties', location.origin);
@@ -193,6 +204,7 @@
       renderSpecialties(data.specialties);
       resultSection.hidden = false;
       emptyTip.hidden = true;
+      LLMProgress.stop();
     } catch (e) {
       showError(e.message);
     }
@@ -254,9 +266,7 @@
 
     setTab('restaurant');
     resultSection.hidden = true;
-    emptyTip.hidden = false;
-    emptyTip.textContent = loadingText('加载中…');
-    emptyTip.className = 'empty-tip';
+    llmLoading('加载中…');
 
     try {
       const url = new URL('/api/food/restaurants', location.origin);
@@ -280,6 +290,7 @@
       renderRestaurants(data.restaurants);
       resultSection.hidden = false;
       emptyTip.hidden = true;
+      LLMProgress.stop();
     } catch (e) {
       showError(e.message);
     }
@@ -360,9 +371,7 @@
 
     setTab('personalize');
     resultSection.hidden = true;
-    emptyTip.hidden = false;
-    emptyTip.textContent = loadingText('分析中…');
-    emptyTip.className = 'empty-tip';
+    llmLoading('分析中…');
 
     try {
       const res = await fetch('/api/food/personalize', {
@@ -377,6 +386,7 @@
       renderPersonalize(data);
       resultSection.hidden = false;
       emptyTip.hidden = true;
+      LLMProgress.stop();
     } catch (e) {
       showError(e.message);
     }
@@ -465,6 +475,24 @@
   formPersonalize.addEventListener('submit', submitPersonalize);
 
   // ---------- 初始化 ----------
+
+  // 快捷城市芯片：填入城市并按当前 tab 自动查询（个性化 tab 需先补需求描述）
+  function bindQuickChips() {
+    const wrap = document.querySelector('.quick-chips');
+    if (!wrap) return;
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      cityInput.value = btn.dataset.city || '';
+      if (currentTab === 'personalize') {
+        const q = document.getElementById('query-input');
+        if (q && !q.value.trim()) { q.focus(); return; }
+      }
+      const forms = { specialty: formSpecialty, restaurant: formRestaurant, personalize: formPersonalize };
+      forms[currentTab].requestSubmit();
+    });
+  }
+  bindQuickChips();
 
   loadCities();
   loadCuisines();

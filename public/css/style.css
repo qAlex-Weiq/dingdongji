@@ -5091,3 +5091,142 @@ body {
     max-width: 300px;
   }
 }
+
+/* ============================================================
+ * LLM 分阶段进度横幅（AI 联网搜索 10~40s 的过程感提示）
+ * ============================================================ */
+.llm-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(29, 79, 145, 0.18);
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(29, 79, 145, 0.06), rgba(29, 79, 145, 0.02));
+}
+
+.llm-progress-track {
+  position: relative;
+  flex: none;
+  width: 72px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(29, 79, 145, 0.12);
+  overflow: hidden;
+}
+
+.llm-progress-track i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  animation: llm-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes llm-sweep {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(320%); }
+}
+
+.llm-progress-text { font-size: 13.5px; color: var(--primary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .llm-progress-track i { animation: none; }
+}
+
+/* ============================================================
+ * 机票准点率分级徽标（≥90 绿 / 80-89 琥珀 / <80 橙）
+ * ============================================================ */
+.tag-punctual {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tag-punctual::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.tag-punctual.pk-hi { background: rgba(43, 138, 62, 0.1); color: var(--green); }
+.tag-punctual.pk-mid { background: rgba(217, 119, 6, 0.12); color: var(--amber); }
+.tag-punctual.pk-lo { background: rgba(232, 89, 12, 0.1); color: var(--accent); }
+
+/* ============================================================
+ * 车票筛选胶囊（车型 / 出发时段）
+ * ============================================================ */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 10px 0 12px;
+}
+
+.pill-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-label { font-size: 12.5px; color: var(--text-3); margin-right: 2px; }
+
+.pill {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.pill:hover { border-color: var(--primary); color: var(--primary); }
+
+.pill.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* ============================================================
+ * 搜索前快捷示例芯片（空状态引导）
+ * ============================================================ */
+.quick-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.quick-chips .chips-label { font-size: 12.5px; color: var(--text-3); }
+.quick-chips .chip { padding: 5px 12px; font-size: 12.5px; }
+
+/* 空态「清除筛选」按钮 */
+.empty .btn-ghost {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.empty .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }

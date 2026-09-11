@@ -58,6 +58,16 @@
         AI 联网搜索需实时生成内容，约需 10~40 秒，请耐心等待；如需秒开结果，可选择「本地数据」。
       </p>
 
+    <div class="quick-chips" aria-label="热门城市">
+      <span class="chips-label">热门城市</span>
+      <button type="button" class="chip" data-city="成都">成都</button>
+      <button type="button" class="chip" data-city="北京">北京</button>
+      <button type="button" class="chip" data-city="上海">上海</button>
+      <button type="button" class="chip" data-city="杭州">杭州</button>
+      <button type="button" class="chip" data-city="西安">西安</button>
+      <button type="button" class="chip" data-city="广州">广州</button>
+    </div>
+
       <div class="tabs" role="tablist" aria-label="美食功能">
         <button class="tab is-active" role="tab" id="tab-specialty" data-tab="specialty" aria-selected="true">特色菜品</button>
         <button class="tab" role="tab" id="tab-restaurant" data-tab="restaurant" aria-selected="false">餐厅推荐</button>
@@ -180,6 +190,7 @@
   <footer class="footer">
     <div class="container">各模块数据为演示数据，仅用于框架演示 · 订懂机旅行规划</div>
   </footer>
+  <script src="/js/llm-progress.js"></script>
   <script src="/js/food.js"></script>
 </body>
 </html>

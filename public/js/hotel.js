@@ -182,8 +182,11 @@
     if (loading) {
       els.resultSection.hidden = false;
       renderSkeleton();
-    } else if (state.data) {
-      renderList();
+      // AI 联网搜索耗时 10~40s，在骨架屏之上叠加分阶段进度横幅
+      if (state.source === 'llm') LLMProgress.start(els.list);
+    } else {
+      LLMProgress.stop();
+      if (state.data) renderList();
     }
   }
 
@@ -307,6 +310,19 @@
       els.toast.classList.remove('is-visible');
     }, 2400);
   }
+
+  // 快捷城市芯片：点击填入城市并自动查询
+  function bindQuickChips() {
+    const wrap = document.querySelector('.quick-chips');
+    if (!wrap) return;
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      els.city.value = btn.dataset.city || '';
+      els.form.requestSubmit();
+    });
+  }
+  bindQuickChips();
 
   document.addEventListener('DOMContentLoaded', init);
 })();

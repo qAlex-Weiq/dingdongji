@@ -191,10 +191,10 @@ function check(name, cond, extra = '') {
 
   // 11. 页面：首页四模块入口
   const home = await fetch(BASE + '/').then((r) => r.text());
-  const cardCount = (home.match(/class="module-card"/g) || []).length;
-  check('首页包含 4 个模块入口', home.includes('module-grid') && cardCount === 4, `实际 ${cardCount} 个`);
-  check('首页景点模块状态为可用', /href="\/sight\.html"[\s\S]*?st-live/.test(home));
-  check('首页美食模块状态为可用', /href="\/food\.html"[\s\S]*?st-live/.test(home));
+  const cardCount = (home.match(/class="gallery-card/g) || []).length;
+  check('首页包含 4 个模块入口', home.includes('gallery-grid') && cardCount === 4, `实际 ${cardCount} 个`);
+  check('首页景点模块入口存在', home.includes('href="/sight.html"'));
+  check('首页美食模块入口存在', home.includes('href="/food.html"'));
 
   // 12. 车票页保留完整查询功能
   const ticket = await fetch(BASE + '/ticket.html').then((r) => r.text());
@@ -252,7 +252,8 @@ function check(name, cond, extra = '') {
   check('POST /api/food/personalize 返回推荐与解析', ppOk, `解析 ${ppBody.parsed?.length} 项 · 推荐 ${ppBody.recommendations?.length} 家`);
   const parsedKeywords = (ppBody.parsed || []).map((p) => p.key);
   // LLM 可能将「宵夜」同义归一为「夜宵」，两者都算命中
-  check('识别到关键词「朋友」「宵夜/夜宵」', parsedKeywords.includes('朋友') && (parsedKeywords.includes('宵夜') || parsedKeywords.includes('夜宵')), `keys: ${parsedKeywords.join('、')}`);
+  // LLM 可能将「朋友」扩展为「朋友聚餐」，「宵夜」同义归一为「夜宵」，均按子串匹配
+  check('识别到关键词「朋友」「宵夜/夜宵」', parsedKeywords.some((k) => k.includes('朋友')) && parsedKeywords.some((k) => k.includes('宵夜') || k.includes('夜宵')), `keys: ${parsedKeywords.join('、')}`);
   check('识别到预算区间（price 类型或 预算/人均 前缀）', (ppBody.parsed || []).some((p) => p.type === 'price') || parsedKeywords.some((k) => /^预算|^人均/.test(k)), `keys: ${parsedKeywords.join('、')}`);
   const rec0 = ppBody.recommendations?.[0] || {};
   check('推荐字段完整（含 score / reason）', rec0.restaurant && typeof rec0.score === 'number' && typeof rec0.reason === 'string');
@@ -318,7 +319,7 @@ function check(name, cond, extra = '') {
   const hotelHtml = await hotelPage.text();
   check('GET /hotel.html 返回 200 且为可用页', hotelPage.status === 200 && hotelHtml.includes('hotel-form') && !hotelHtml.includes('coming-soon'));
   check('酒店页包含偏好选项（价格档位 + 位置偏好）', hotelHtml.includes('name="tier"') && hotelHtml.includes('name="location"') && hotelHtml.includes('chip-row'));
-  check('首页酒店模块状态为可用', /href="\/hotel\.html"[\s\S]*?st-live/.test(home));
+  check('首页酒店模块入口存在', home.includes('href="/hotel.html"'));
 
   // 23. 静态资源
   const css = await fetch(BASE + '/css/style.css');

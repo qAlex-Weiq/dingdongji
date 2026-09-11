@@ -72,6 +72,16 @@
         AI 联网搜索需实时生成内容，约需 10~40 秒，请耐心等待；如需秒开结果，可选择「本地数据」。
       </p>
     </section>
+    <div class="quick-chips" aria-label="热门城市">
+      <span class="chips-label">热门城市</span>
+      <button type="button" class="chip" data-city="成都">成都</button>
+      <button type="button" class="chip" data-city="北京">北京</button>
+      <button type="button" class="chip" data-city="上海">上海</button>
+      <button type="button" class="chip" data-city="杭州">杭州</button>
+      <button type="button" class="chip" data-city="西安">西安</button>
+      <button type="button" class="chip" data-city="广州">广州</button>
+    </div>
+
 
 
     <section id="result-section" class="result-section" hidden>
@@ -103,6 +113,7 @@
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/llm-progress.js"></script>
   <script src="/js/hotel.js"></script>
 </body>
 </html>

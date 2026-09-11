@@ -21,6 +21,9 @@
     counts: { flights: $('#flight-count'), trains: $('#train-count') },
     panels: { flights: $('#flights-panel'), trains: $('#trains-panel') },
     sort: $('#sort-select'),
+    filterBar: $('#filter-bar'),
+    filterType: $('#filter-type'),
+    filterDep: $('#filter-dep'),
     cityList: $('#city-list'),
     toast: $('#toast'),
   };
@@ -30,6 +33,7 @@
     sort: 'dep',          // 'dep' | 'price' | 'duration'
     data: null,           // { query, flights, trains }
     loading: false,
+    filters: { type: 'all', dep: 'all' }, // 车型 'all'|'hsr'|'normal'；时段 'all'|'dawn'|'morning'|'afternoon'|'night'
   };
 
   const PLANE_SVG =
@@ -61,8 +65,15 @@
       state.sort = els.sort.value;
       renderActivePanel();
     });
-    // 事件委托：卡片上的“选择”按钮
+    bindFilterGroups();
+    bindQuickChips();
+
+    // 事件委托：卡片上的“选择”按钮 / 空态清除筛选
     document.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="clear-filters"]')) {
+        resetFilters();
+        return;
+      }
       if (e.target.closest('[data-action="select"]')) {
         showToast('演示环境：预订功能尚未接入真实渠道');
       }
@@ -168,8 +179,8 @@
 
   function renderResult() {
     const { query, flights, trains } = state.data;
-    els.counts.flights.textContent = flights.length;
-    els.counts.trains.textContent = trains.length;
+    updateCounts();
+    els.filterBar.hidden = false;
     els.routeSummary.innerHTML =
       `<b>${esc(query.from)}</b> → <b>${esc(query.to)}</b> · ${formatDateCn(query.date)}` +
       ` · 共 ${flights.length} 个航班 / ${trains.length} 个车次`;
@@ -179,10 +190,14 @@
   function renderActivePanel() {
     if (!state.data || state.loading) return;
     const tab = state.activeTab;
-    const list = sorted(state.data[tab]);
+    const all = state.data[tab];
+    const list = sorted(applyFilters(all, tab));
     const note = tab === 'trains' ? trainsSourceNote() : flightsSourceNote();
+    const filtered = list.length !== all.length;
+    updateFilterVisibility();
+    updateCounts();
     els.panels[tab].innerHTML =
-      note + (list.length === 0 ? emptyHtml() : list.map(tab === 'flights' ? flightCard : trainCard).join(''));
+      note + (list.length === 0 ? emptyHtml(filtered) : list.map(tab === 'flights' ? flightCard : trainCard).join(''));
   }
 
   function sorted(list) {
@@ -206,7 +221,7 @@
           <div class="card-top">
             <span class="carrier">${esc(f.airline)}</span>
             <span class="code">${esc(f.flightNo)}</span>
-            ${f.punctuality != null ? `<span class="tag-soft">准点率 ${f.punctuality}%</span>` : ''}
+            ${punctualityTag(f.punctuality)}
           </div>
           <div class="timeline">
             <div class="node">
@@ -289,12 +304,88 @@
     panel.innerHTML = skeleton.repeat(4);
   }
 
-  function emptyHtml() {
+  function emptyHtml(filtered) {
     return `
       <div class="empty">
         ${SEARCH_SVG}
-        <p>没有找到符合条件的班次，换个日期或城市试试</p>
+        <p>${filtered ? '当前筛选条件下没有班次，试试放宽条件' : '没有找到符合条件的班次，换个日期或城市试试'}</p>
+        ${filtered ? '<button type="button" class="btn-ghost" data-action="clear-filters">清除筛选</button>' : ''}
       </div>`;
+  }
+
+  // ---------- 筛选与快捷示例（纯前端，数据已在内存） ----------
+
+  /** 车型/时段组合筛选；时段口径与 12306 一致：凌晨 00-06 / 上午 06-12 / 下午 12-18 / 晚上 18-24 */
+  function applyFilters(list, tab) {
+    const DEP_RANGE = { dawn: [0, 6], morning: [6, 12], afternoon: [12, 18], night: [18, 24] };
+    return list.filter((it) => {
+      if (tab === 'trains' && state.filters.type !== 'all') {
+        const wantHsr = state.filters.type === 'hsr';
+        const isHsr = /^[GDC]/.test(it.trainNo);
+        if (wantHsr !== isHsr) return false;
+      }
+      if (state.filters.dep !== 'all') {
+        const [lo, hi] = DEP_RANGE[state.filters.dep];
+        const h = Number(it.depTime.slice(0, 2));
+        if (!(h >= lo && h < hi)) return false;
+      }
+      return true;
+    });
+  }
+
+  /** tab 计数：筛选激活时显示 "N/M"（过滤后/全部） */
+  function updateCounts() {
+    ['flights', 'trains'].forEach((tab) => {
+      const all = state.data[tab];
+      const n = applyFilters(all, tab).length;
+      els.counts[tab].textContent = n === all.length ? String(all.length) : `${n}/${all.length}`;
+    });
+  }
+
+  /** 车型筛选仅对火车票 tab 有意义 */
+  function updateFilterVisibility() {
+    els.filterType.hidden = state.activeTab !== 'trains';
+  }
+
+  function bindFilterGroups() {
+    [['type', els.filterType], ['dep', els.filterDep]].forEach(([key, group]) => {
+      group.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pill');
+        if (!btn || btn.classList.contains('is-active')) return;
+        state.filters[key] = btn.dataset.v;
+        group.querySelectorAll('.pill').forEach((p) => p.classList.toggle('is-active', p === btn));
+        renderActivePanel();
+      });
+    });
+  }
+
+  function resetFilters() {
+    state.filters = { type: 'all', dep: 'all' };
+    [els.filterType, els.filterDep].forEach((group) => {
+      group.querySelectorAll('.pill').forEach((p, i) => p.classList.toggle('is-active', i === 0));
+    });
+    renderActivePanel();
+  }
+
+  /** 快捷路线芯片：一键填充起终点并查询 */
+  function bindQuickChips() {
+    const wrap = document.querySelector('.quick-chips');
+    if (!wrap) return;
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      els.from.value = btn.dataset.from || '';
+      els.to.value = btn.dataset.to || '';
+      els.form.requestSubmit();
+    });
+  }
+
+  /** 机票历史准点率徽标：≥90 绿（很准点）/ 80-89 琥珀（较为准点）/ <80 橙（易延误） */
+  function punctualityTag(p) {
+    if (p == null) return '';
+    const level = p >= 90 ? 'hi' : p >= 80 ? 'mid' : 'lo';
+    const label = p >= 90 ? '很准点' : p >= 80 ? '较为准点' : '易延误';
+    return `<span class="tag-punctual pk-${level}" title="该航班历史准点率 ${p}%">准点率 ${p}% · ${label}</span>`;
   }
 
   // ---------- 工具函数 ----------

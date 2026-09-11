@@ -33,13 +33,13 @@ const path = require('path');
 
   // ---- 首页：模块选择 ----
   await page.goto('http://localhost:3000/', { waitUntil: 'networkidle' });
-  const moduleCards = await page.locator('.module-card').count();
+  const moduleCards = await page.locator('.gallery-card').count();
   console.log(`首页模块入口: ${moduleCards} 个`);
   if (moduleCards !== 4) throw new Error(`期望 4 个模块入口，实际 ${moduleCards}`);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-home.png') });
 
   // ---- 进入车票模块 ----
-  await page.click('.module-card[href="/ticket.html"]');
+  await page.click('.gallery-card[href="/ticket.html"]');
   await page.waitForURL('**/ticket.html');
   const activeNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
   console.log(`车票模块导航高亮: ${activeNav}`);
@@ -92,6 +92,57 @@ const path = require('path');
   await page.click('#swap-btn');
   const swapped = await page.inputValue('#from-input');
   console.log(`交换后出发城市: ${swapped}`);
+  // ---- 本次增强：快捷路线芯片 / 筛选胶囊 / 准点率徽标 ----
+  // 快捷路线芯片：点击后自动填充并重新查询
+  const [chipResp] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/api/ticket/search') && r.status() === 200, { timeout: 20000 }),
+    page.click('.quick-chips .chip[data-from="北京"][data-to="上海"]'),
+  ]);
+  await page.waitForTimeout(600);
+  const chipFrom = await page.inputValue('#from-input');
+  const chipTo = await page.inputValue('#to-input');
+  if (chipFrom !== '北京' || chipTo !== '上海') throw new Error(`快捷芯片填充异常：${chipFrom} → ${chipTo}`);
+  console.log(`快捷路线芯片: ${chipFrom} → ${chipTo}，自动查询完成（HTTP ${chipResp.status()}）`);
+
+  // 筛选胶囊：车型「高铁动车」过滤 + 计数 N/M + 恢复
+  const totalTrains = await page.locator('#trains-panel .card').count();
+  await page.click('#filter-type .pill[data-v="hsr"]');
+  await page.waitForTimeout(200);
+  const hsrTrains = await page.locator('#trains-panel .card').count();
+  const hsrCount = (await page.locator('#train-count').innerText()).trim();
+  if (hsrTrains >= totalTrains) throw new Error(`高铁筛选未生效（${hsrTrains}/${totalTrains}）`);
+  if (!/^\d+\/\d+$/.test(hsrCount)) throw new Error(`筛选后计数应显示 N/M，实际 "${hsrCount}"`);
+  const hsrTexts = await page.locator('#trains-panel .card').allInnerTexts();
+  if (!hsrTexts.every((t) => /[GDC]\d+/.test(t.replace(/\s+/g, ' ')))) {
+    throw new Error('高铁动车筛选后存在非 G/D/C 车次');
+  }
+  console.log(`车型筛选（高铁动车）: ${hsrCount}，全部为 G/D/C 车次`);
+
+  // 时段筛选叠加：上午（06:00-12:00 出发）
+  await page.click('#filter-dep .pill[data-v="morning"]');
+  await page.waitForTimeout(200);
+  const morningCount = (await page.locator('#train-count').innerText()).trim();
+  console.log(`叠加时段筛选（上午）: ${morningCount}`);
+  await page.click('#filter-type .pill[data-v="all"]');
+  await page.click('#filter-dep .pill[data-v="all"]');
+  await page.waitForTimeout(200);
+  const restored = await page.locator('#trains-panel .card').count();
+  if (restored !== totalTrains) throw new Error(`清除筛选未恢复（${restored}/${totalTrains}）`);
+  console.log('筛选恢复（全部）: 正常');
+
+  // 准点率徽标：切回机票 tab 校验分级徽标
+  await page.click('#tab-flights');
+  await page.waitForTimeout(300);
+  const pkBadges = await page.locator('#flights-panel .tag-punctual').count();
+  if (pkBadges > 0) {
+    const pkText = (await page.locator('#flights-panel .tag-punctual').first().innerText()).trim();
+    if (!/^准点率 \d+% · /.test(pkText)) throw new Error(`准点率徽标文案异常："${pkText}"`);
+    const pkClass = await page.locator('#flights-panel .tag-punctual').first().getAttribute('class');
+    if (!/pk-(hi|mid|lo)/.test(pkClass)) throw new Error(`准点率徽标缺少分级 class："${pkClass}"`);
+    console.log(`准点率徽标: ${pkBadges} 个，样例「${pkText}」（${pkClass.match(/pk-\w+/)[0]}）`);
+  } else {
+    console.log('准点率徽标: 当前数据源无准点率数据，跳过校验');
+  }
 
   // ---- 截图（桌面 + 移动） ----
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-desktop.png'), fullPage: false });
@@ -140,6 +191,21 @@ const path = require('path');
   const sightSummary = (await page.locator('#sight-summary').innerText()).replace(/\s+/g, ' ');
   console.log('景点结果摘要:', sightSummary.slice(0, 80));
   if (!sightSummary.includes('本地')) throw new Error('摘要未标注本地数据来源');
+  // LLM 分阶段进度组件已加载（AI 慢速查询时显示横幅）
+  const llmProgressOk = await page.evaluate(() =>
+    typeof window.LLMProgress === 'object' &&
+    typeof window.LLMProgress.start === 'function' &&
+    typeof window.LLMProgress.stop === 'function'
+  );
+  if (!llmProgressOk) throw new Error('LLMProgress 分阶段进度组件未加载');
+  console.log('LLM 分阶段进度组件: 已加载');
+
+  // 快捷城市芯片：点击成都自动重搜
+  await page.click('.quick-chips .chip[data-city="成都"]');
+  await page.waitForSelector('#sight-list .card:not(.skeleton)', { timeout: 10000 });
+  const chipCity = await page.inputValue('#city-input');
+  if (chipCity !== '成都') throw new Error(`城市芯片填充异常：${chipCity}`);
+  console.log('快捷城市芯片（成都）: 自动查询正常');
 
   const firstSight = await page.locator('#sight-list .card').first().innerText();
   console.log('首张景点卡片摘要:', firstSight.replace(/\s+/g, ' ').slice(0, 120));
@@ -194,6 +260,7 @@ const path = require('path');
   console.log(`美食城市补全: ${foodCityOptions} 个`);
 
   // Tab 1: 特色菜品
+  await page.selectOption('#source-select', 'local');
   await page.fill('#city-input', '成都');
   await page.selectOption('#specialty-category', '小吃');
   await page.click('#form-specialty button[type="submit"]');

@@ -54,6 +54,15 @@
       </form>
       <datalist id="city-list"></datalist>
     </section>
+    <div class="quick-chips" aria-label="热门路线">
+      <span class="chips-label">试试热门路线</span>
+      <button type="button" class="chip" data-from="北京" data-to="上海">北京 → 上海</button>
+      <button type="button" class="chip" data-from="成都" data-to="重庆">成都 → 重庆</button>
+      <button type="button" class="chip" data-from="广州" data-to="长沙">广州 → 长沙</button>
+      <button type="button" class="chip" data-from="杭州" data-to="南京">杭州 → 南京</button>
+      <button type="button" class="chip" data-from="北京" data-to="西安">北京 → 西安</button>
+    </div>
+
 
 
     <section id="result-section" class="result-section" hidden>
@@ -75,6 +84,23 @@
           </select>
         </div>
       </div>
+      <div class="filter-bar" id="filter-bar" hidden>
+        <div class="pill-group" id="filter-type" role="group" aria-label="车型筛选">
+          <span class="filter-label">车型</span>
+          <button type="button" class="pill is-active" data-v="all">全部</button>
+          <button type="button" class="pill" data-v="hsr">高铁动车</button>
+          <button type="button" class="pill" data-v="normal">普速列车</button>
+        </div>
+        <div class="pill-group" id="filter-dep" role="group" aria-label="出发时段筛选">
+          <span class="filter-label">时段</span>
+          <button type="button" class="pill is-active" data-v="all">全部</button>
+          <button type="button" class="pill" data-v="dawn">凌晨</button>
+          <button type="button" class="pill" data-v="morning">上午</button>
+          <button type="button" class="pill" data-v="afternoon">下午</button>
+          <button type="button" class="pill" data-v="night">晚上</button>
+        </div>
+      </div>
+
       <p class="route-summary" id="route-summary"></p>
       <div id="flights-panel" class="list" role="tabpanel" aria-labelledby="tab-flights"></div>
       <div id="trains-panel" class="list" role="tabpanel" aria-labelledby="tab-trains" hidden></div>
@@ -94,6 +120,7 @@
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/llm-progress.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>
