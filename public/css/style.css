@@ -791,7 +791,7 @@ button { font-family: inherit; }
 .form-actions .search-btn { flex-shrink: 0; }
 .form-actions .hint { margin: 0; font-size: 12.5px; color: var(--text-2); line-height: 1.55; }
 
-/* checkbox 行\uff1a小小塔根基 .field 的 label �\u200b坟 */
+/* checkbox 行\uff1a小小塔根基 .field 的 label �\u200b坟 */
 .check-inline {
   display: inline-flex;
   align-items: center;
@@ -1564,4 +1564,169 @@ button { font-family: inherit; }
   color: var(--text-3);
   font-weight: 500;
   padding-top: 6px;
+}
+
+/* ============================================================
+   首页 · 电影感 Hero（全屏地标轮播 + 玻璃拟态）
+   仅作用于 index.html（body.page-home / topbar--glass /
+   hero-home / module-grid），其余页面不受影响
+   ============================================================ */
+
+/* 全屏出血（100vw）时裁掉横向溢出，clip 不产生滚动容器、不影响其他页 sticky 顶栏 */
+body.page-home { overflow-x: hidden; overflow-x: clip; }
+
+/* ---------- 顶栏（首页玻璃浮动版） ---------- */
+
+.topbar--glass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: rgba(15, 23, 42, 0.32);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.topbar--glass .brand { color: #fff; }
+
+.topbar--glass .brand-name i { color: rgba(255, 255, 255, 0.72); }
+
+.topbar--glass .module-nav a {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.topbar--glass .module-nav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.topbar--glass .module-nav .nav-settings,
+.topbar--glass .module-nav .nav-settings:hover,
+.topbar--glass .module-nav .nav-settings.is-active {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.topbar--glass .module-nav .nav-settings:hover { color: #fff; }
+
+/* ---------- Hero：全屏出血 + 轮播 ---------- */
+
+.hero-home {
+  position: relative;
+  overflow: hidden;
+  margin: 0 calc(50% - 50vw);
+  width: 100vw;
+  padding: 176px 0 190px;
+  background: #0f172a;
+  text-align: center;
+}
+
+.hero-slideshow,
+.hero-slide {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-slide {
+  opacity: 0;
+  animation: hero-fade 24s linear infinite;
+  will-change: opacity;
+}
+
+.hero-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: hero-zoom 24s linear infinite;
+  will-change: transform;
+}
+
+.hero-slide:nth-child(1),
+.hero-slide:nth-child(1) img { animation-delay: 0s; }
+
+.hero-slide:nth-child(2),
+.hero-slide:nth-child(2) img { animation-delay: 6s; }
+
+.hero-slide:nth-child(3),
+.hero-slide:nth-child(3) img { animation-delay: 12s; }
+
+.hero-slide:nth-child(4),
+.hero-slide:nth-child(4) img { animation-delay: 18s; }
+
+/* 4 张幻灯片，每 6 秒切换，约 2 秒交叉淡入淡出 */
+@keyframes hero-fade {
+  0%   { opacity: 0; }
+  4%   { opacity: 1; }
+  25%  { opacity: 1; }
+  33%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Ken Burns 缓慢推近：scale(1) → scale(1.05) */
+@keyframes hero-zoom {
+  0%   { transform: scale(1); }
+  33%  { transform: scale(1.05); }
+  100% { transform: scale(1.05); }
+}
+
+/* 暗角渐变，保证标题可读并过渡到页面底色 */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg,
+    rgba(15, 23, 42, 0.5) 0%,
+    rgba(15, 23, 42, 0.3) 60%,
+    rgba(247, 249, 252, 1) 100%);
+}
+
+.hero-home .hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-home h1 {
+  color: #fff;
+  font-size: 38px;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 20px rgba(15, 23, 42, 0.45), 0 1px 3px rgba(15, 23, 42, 0.35);
+}
+
+.hero-home p {
+  color: #fff;
+  font-size: 16.5px;
+  text-shadow: 0 1px 12px rgba(15, 23, 42, 0.55);
+}
+
+/* ---------- 模块卡片：磨砂玻璃，压住 Hero 底部过渡 ---------- */
+
+.module-grid {
+  position: relative;
+  z-index: 3;
+  margin-top: -104px;
+}
+
+.module-card {
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+/* ---------- 首页移动端 ---------- */
+
+@media (max-width: 760px) {
+  .hero-home { padding: 128px 0 150px; }
+  .hero-home h1 { font-size: 26px; letter-spacing: 1px; }
+  .hero-home p { font-size: 15px; }
+  .module-grid { margin-top: -78px; }
+}
+
+/* 动效减弱偏好：停用轮播与推近，静态展示第一张 */
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide,
+  .hero-slide img { animation: none; }
+  .hero-slide:first-child { opacity: 1; }
 }
