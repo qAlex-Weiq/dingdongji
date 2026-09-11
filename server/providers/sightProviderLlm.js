@@ -31,7 +31,7 @@ function getModel() {
   return process.env.LLM_MODEL || 'glm-4-flash';
 }
 
-async function fetchWithTimeout(url, options, timeoutMs = 30000) {
+async function fetchWithTimeout(url, options, timeoutMs = 90000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
