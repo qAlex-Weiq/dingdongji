@@ -341,10 +341,10 @@ const path = require('path');
     throw new Error('酒店卡片未在 10s 内渲染');
   }
   const hotelCards = await page.locator('#hotel-list .card:not(.skeleton)').count();
-  console.log(`酒店卡片（舒适型 · 市中心）: ${hotelCards} 张`);
+  console.log(`酒店卡片（¥200 - ¥450 · 市中心）: ${hotelCards} 张`);
   const hotelSummary = (await page.locator('#hotel-summary').innerText()).replace(/\s+/g, ' ');
   console.log('酒店结果摘要:', hotelSummary.slice(0, 80));
-  if (!hotelSummary.includes('舒适型')) throw new Error('摘要未包含价格档位条件');
+  if (!hotelSummary.includes('¥200 - ¥450')) throw new Error('摘要未包含价格档位条件');
   const firstHotel = await page.locator('#hotel-list .card').first().innerText();
   console.log('首张酒店卡片摘要:', firstHotel.replace(/\s+/g, ' ').slice(0, 120));
   const tierTag = await page.locator('#hotel-list .card .tier-tag').first().innerText();

@@ -49,13 +49,13 @@
     '豪华型': 'tier-luxury',
   };
 
-  /** 档位中文 → 英文 key（用于筛选条件回显） */
+  /** 档位 key → 价格区间标签（用于筛选条件回显，与页面药丸文案一致） */
   const TIER_LABEL = {
     any: '不限',
-    budget: '经济型',
-    comfort: '舒适型',
-    upscale: '高档型',
-    luxury: '豪华型',
+    budget: '¥200以下',
+    comfort: '¥200 - ¥450',
+    upscale: '¥450 - ¥800',
+    luxury: '¥800以上',
   };
   const LOCATION_LABEL = {
     any: '位置不限',
