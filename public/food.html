@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>饭店 · 叮咚机旅行规划</title>
-  <meta name="description" content="饭店模块：目的地餐厅推荐与美食安排（开发中）">
+  <title>美食 · 叮咚机旅行规划</title>
+  <meta name="description" content="按目的地查特色菜品、筛选餐厅，或告诉「叮咚机」你的口味需求，获得个性化餐厅推荐">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -19,31 +19,147 @@
         <a href="/ticket.html">车票</a>
         <a href="/hotel.html">酒店</a>
         <a href="/sight.html">景点</a>
-        <a href="/food.html" class="is-active">饭店</a>
+        <a href="/food.html" class="is-active">美食</a>
         <a href="/settings.html" class="nav-settings">设置</a>
       </nav>
     </div>
   </header>
 
   <main class="container">
-    <section class="coming-soon">
-      <span class="cs-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
-      </span>
-      <h1>饭店模块</h1>
-      <span class="cs-badge">开发中</span>
-      <p class="cs-hint">正在规划以下能力：</p>
-      <ul class="cs-list">
-        <li>目的地餐厅推荐</li>
-        <li>菜系与人均消费筛选</li>
-        <li>位置、营业时间与口碑参考</li>
-      </ul>
-      <div><a class="cs-back" href="/">返回首页</a></div>
+    <section class="hero">
+      <h1>到一座城，先尝它的味道</h1>
+      <p>查看当地特色菜品、筛选口味 / 人均 / 营业时段合适的餐厅，或直接告诉「叮咚机」你的偏好，让推荐更对味</p>
     </section>
+
+    <!-- 顶部：城市 + 三 tab 切换 -->
+    <section class="search-card" aria-label="美食查询">
+      <form id="food-form" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="city-input">目的地城市</label>
+          <div class="input-wrap">
+            <input id="city-input" list="city-list" placeholder="如：成都" maxlength="12" required>
+            <button type="button" id="city-clear" class="input-clear" title="清除城市" aria-label="清除城市" hidden>×</button>
+          </div>
+        </div>
+      </form>
+      <datalist id="city-list"></datalist>
+
+      <div class="tabs" role="tablist" aria-label="美食功能">
+        <button class="tab is-active" role="tab" id="tab-specialty" data-tab="specialty" aria-selected="true">特色菜品</button>
+        <button class="tab" role="tab" id="tab-restaurant" data-tab="restaurant" aria-selected="false">餐厅推荐</button>
+        <button class="tab" role="tab" id="tab-personalize" data-tab="personalize" aria-selected="false">个性化</button>
+      </div>
+    </section>
+
+    <!-- Tab 1: 特色菜品 -->
+    <section class="search-card" id="panel-specialty" data-panel="specialty" aria-label="特色菜品表单">
+      <form id="form-specialty" class="form-row" novalidate>
+        <div class="field">
+          <label for="specialty-category">菜品分类</label>
+          <select id="specialty-category">
+            <option value="">全部</option>
+            <option value="主食">主食</option>
+            <option value="小吃">小吃</option>
+            <option value="汤羹">汤羹</option>
+            <option value="凉菜">凉菜</option>
+            <option value="甜品">甜品</option>
+            <option value="饮品">饮品</option>
+          </select>
+        </div>
+        <button type="submit" class="search-btn">查看特色菜</button>
+      </form>
+    </section>
+
+    <!-- Tab 2: 餐厅推荐 -->
+    <section class="search-card" id="panel-restaurant" data-panel="restaurant" hidden aria-label="餐厅筛选表单">
+      <form id="form-restaurant" class="form-grid" novalidate>
+        <div class="field field-wide">
+          <label>菜系偏好（可多选）</label>
+          <div id="cuisine-chips" class="chip-group" role="group" aria-label="菜系筛选"></div>
+        </div>
+        <div class="field">
+          <label for="slot-select">用餐时段</label>
+          <select id="slot-select">
+            <option value="">不限</option>
+            <option value="早餐">早餐</option>
+            <option value="午餐">午餐</option>
+            <option value="下午茶">下午茶</option>
+            <option value="晚餐">晚餐</option>
+            <option value="夜宵">夜宵</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="price-min">最低人均（¥）</label>
+          <input id="price-min" type="number" min="0" max="2000" step="10" value="0">
+        </div>
+        <div class="field">
+          <label for="price-max">最高人均（¥）</label>
+          <input id="price-max" type="number" min="0" max="2000" step="10" value="300">
+        </div>
+        <div class="field">
+          <label for="restaurant-sort">排序方式</label>
+          <select id="restaurant-sort">
+            <option value="rating">评分优先</option>
+            <option value="priceAsc">人均从低</option>
+            <option value="priceDesc">人均从高</option>
+            <option value="openFirst">营业中优先</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>运营状态</label>
+          <label class="check-inline">
+            <input id="open-now" type="checkbox"> 今天营业中
+          </label>
+        </div>
+        <div class="form-actions field-wide">
+          <button type="reset" class="search-btn-secondary">重置</button>
+          <button type="submit" class="search-btn">查找餐厅</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Tab 3: 个性化推荐 -->
+    <section class="search-card" id="panel-personalize" data-panel="personalize" hidden aria-label="个性化推荐表单">
+      <form id="form-personalize" novalidate>
+        <div class="form-grid form-grid-1">
+          <div class="field">
+            <label for="query-input">描述你的需求</label>
+            <textarea id="query-input" rows="4" maxlength="200" placeholder="例如：和几个朋友吃宵夜，喜欢辣，人均 150 元；带父母来，希望清淡不辣；想找个适合情侣约会的餐厅……"></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <p class="hint">支持口味（辣 / 不辣 / 清淡）、同行人（父母 / 情侣 / 朋友）、时段（早餐 / 夜宵 / 下午茶）、预算（150/人）、氛围（包间 / 排队 / 24 小时）等关键词</p>
+          <button type="submit" class="search-btn">获取推荐</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 结果区 -->
+    <section id="result-section" class="result-section" hidden>
+      <div class="result-toolbar">
+        <p class="route-summary" id="result-summary"></p>
+      </div>
+
+      <!-- Tab 1: 特色菜品 -->
+      <div id="specialty-panel" class="list" data-result="specialty"></div>
+
+      <!-- Tab 2: 餐厅 -->
+      <div id="restaurant-panel" class="list" data-result="restaurant" hidden></div>
+
+      <!-- Tab 3: 个性化 -->
+      <div id="personalize-panel" class="list" data-result="personalize" hidden>
+        <div id="parsed-chips" class="chip-group parsed-chips" aria-label="识别到的关键词"></div>
+        <p id="personalize-hint" class="personalize-hint" hidden></p>
+        <div id="personalize-list"></div>
+      </div>
+    </section>
+
+    <p id="empty-tip" class="empty-tip" hidden></p>
   </main>
 
   <footer class="footer">
     <div class="container">各模块数据为演示数据，仅用于框架演示 · 叮咚机旅行规划</div>
   </footer>
+  <script src="/js/food.js"></script>
 </body>
 </html>

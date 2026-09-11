@@ -155,8 +155,82 @@ const path = require('path');
   console.log(`数据源状态: ${statusText.slice(0, 80)}`);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-settings.png'), fullPage: false });
 
-  // ---- 占位模块页可达（酒店 / 饭店） ----
-  for (const p of ['hotel', 'food']) {
+  // ---- 进入美食模块（三 tab） ----
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto('http://localhost:3000/food.html', { waitUntil: 'networkidle' });
+  const foodActiveNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
+  console.log(`美食模块导航高亮: ${foodActiveNav}`);
+  if (foodActiveNav !== '美食') throw new Error(`顶栏 nav 未合并：得到 ${foodActiveNav}`);
+
+  // 城市补全（等 JS 异步加载）
+  await page.waitForFunction(() => document.querySelectorAll('#city-list option').length > 0, null, { timeout: 5000 }).catch(() => {});
+  const foodCityOptions = await page.locator('#city-list option').count();
+  if (foodCityOptions === 0) throw new Error('city-list 为空');
+  console.log(`美食城市补全: ${foodCityOptions} 个`);
+
+  // Tab 1: 特色菜品
+  await page.fill('#city-input', '成都');
+  await page.selectOption('#specialty-category', '小吃');
+  await page.click('#form-specialty button[type="submit"]');
+  await page.waitForSelector('#specialty-panel .dish-card', { timeout: 5000 });
+  const dishCount = await page.locator('#specialty-panel .dish-card').count();
+  console.log(`特色菜品（成都 小吃）: ${dishCount} 道`);
+  const firstDish = (await page.locator('#specialty-panel .dish-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 120);
+  console.log('首顶菜品:', firstDish);
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-specialty.png'), fullPage: false });
+
+  // Tab 2: 餐厅推荐
+  await page.click('#tab-restaurant');
+  await page.waitForSelector('#panel-restaurant:not([hidden])', { timeout: 2000 });
+  // 升级 city 为北京 + 选 火锅 + 人均 80–200
+  await page.fill('#city-input', '北京');
+  await page.click('#cuisine-chips .chip[data-name="火锅"]');
+  await page.fill('#price-min', '80');
+  await page.fill('#price-max', '200');
+  await page.selectOption('#slot-select', '晚餐');
+  await page.click('#form-restaurant button[type="submit"]');
+  await page.waitForSelector('#restaurant-panel .rest-card', { timeout: 5000 });
+  const restCount = await page.locator('#restaurant-panel .rest-card').count();
+  console.log(`餐厅（北京/火锅/80–200）: ${restCount} 家`);
+  const firstRest = (await page.locator('#restaurant-panel .rest-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 140);
+  console.log('首家餐厅:', firstRest);
+  // 标题：检查 ·ƙ�餐· / 人均·存在 距地标 参考
+  const restCards = page.locator('#restaurant-panel .rest-card');
+  for (let i = 0; i < await restCards.count(); i++) {
+    const t = await restCards.nth(i).innerText();
+    // 顾客经过☎️ + 地区/距地标信息
+    if (!t.includes('\ud83d\udccd') && !t.includes('地区') && !t.includes('km')) throw new Error(`餐厅缺少位置`);
+    if (!t.includes('人均')) throw new Error('餐厅缺少人均');
+  }
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-restaurant.png'), fullPage: false });
+
+  // Tab 3: 个性化推荐
+  await page.click('#tab-personalize');
+  await page.waitForSelector('#panel-personalize:not([hidden])', { timeout: 2000 });
+  await page.fill('#city-input', '成都');
+  await page.fill('#query-input', '和几个朋友吃宵夜，喜欢辣，150 元每人');
+  await page.click('#form-personalize button[type="submit"]');
+  await page.waitForSelector('#personalize-list .rest-card', { timeout: 5000 });
+  const recCount = await page.locator('#personalize-list .rest-card').count();
+  const parsedCount = await page.locator('#parsed-chips .parsed-chip').count();
+  console.log(`个性化（成都/朋友/宵夜）: 解析 ${parsedCount} 项 · 推荐 ${recCount} 家`);
+  if (parsedCount < 2) throw new Error('个性化解析太少');
+  if (recCount < 1) throw new Error('个性化没出推荐');
+  // 标题：第一家需包含 号码 + 匹配度
+  const firstRec = (await page.locator('#personalize-list .rest-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 180);
+  console.log('首家推荐:', firstRec);
+  if (!firstRec.includes('分')) throw new Error('个性化匹配度缺失');
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-personalize.png'), fullPage: false });
+
+  // 移动端 餐厅 tab 截图
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  await page.click('#tab-restaurant');
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-mobile.png'), fullPage: false });
+
+  // ---- 占位模块页（hotel） ----
+  for (const p of ['hotel']) {
     await page.goto(`http://localhost:3000/${p}.html`, { waitUntil: 'networkidle' });
     const heading = (await page.locator('.coming-soon h1').innerText()).trim();
     const badge = (await page.locator('.cs-badge').innerText()).trim();

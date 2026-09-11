@@ -114,40 +114,110 @@ function check(name, cond, extra = '') {
   check('GET /api/sight/search 西安（auto 降级链）', okAuto,
     `来源 ${sAuto.body.source} / ${sAuto.body.count} 个景点`);
 
-  // 9. 页面：首页四模块入口
+  // 11. 页面：首页四模块入口
   const home = await fetch(BASE + '/').then((r) => r.text());
   const cardCount = (home.match(/class="module-card"/g) || []).length;
   check('首页包含 4 个模块入口', home.includes('module-grid') && cardCount === 4, `实际 ${cardCount} 个`);
   check('首页景点模块状态为可用', /href="\/sight\.html"[\s\S]*?st-live/.test(home));
+  check('首页美食模块状态为可用', /href="\/food\.html"[\s\S]*?st-live/.test(home));
 
-  // 10. 车票页保留完整查询功能
+  // 12. 车票页保留完整查询功能
   const ticket = await fetch(BASE + '/ticket.html').then((r) => r.text());
   check('车票页包含查询表单与城市补全', ticket.includes('search-form') && ticket.includes('city-list') && ticket.includes('module-nav'));
 
-  // 11. 景点页为可用页面（非占位），含数据源选择器与慢速提示
+  // 13. 景点页为可用页面（非占位），含数据源选择器与慢速提示
   const sight = await fetch(BASE + '/sight.html').then((r) => r.text());
   check('景点页包含查询表单与结果区', sight.includes('sight-form') && sight.includes('sight-list') && sight.includes('city-list') && !sight.includes('coming-soon'));
   check('景点页包含数据源选择器与 AI 慢速提示', sight.includes('source-select') && sight.includes('source-hint') && sight.includes('AI 联网搜索'));
 
-  // 12. 设置页可达且包含配置表单
+  // 14. 设置页可达且包含配置表单
   const settingsPage = await fetch(BASE + '/settings.html');
   const spHtml = await settingsPage.text();
   check('GET /settings.html 返回 200 且包含配置表单', settingsPage.status === 200 && spHtml.includes('settings-form') && spHtml.includes('llm-key') && spHtml.includes('llm-url'));
   check('首页与车票页导航包含设置入口', home.includes('settings.html') && ticket.includes('settings.html'));
 
-  // 13. 占位模块页可达（酒店 / 饭店），且导航含设置入口
-  for (const p of ['hotel', 'food']) {
+  // 15. 美食模块：菜系列表
+  const cuisines = await get('/api/food/cuisines');
+  check('GET /api/food/cuisines 返回 200 且非空', cuisines.status === 200 && Array.isArray(cuisines.body) && cuisines.body.length > 0, `共 ${cuisines.body.length} 个菜系`);
+
+  // 16. 美食模块：特色菜品
+  const sq = '/api/food/specialties?city=' + encodeURIComponent('成都') + '&category=' + encodeURIComponent('小吃');
+  const sp = await get(sq);
+  const spOk = sp.status === 200 && sp.body.query?.city === '成都' && Array.isArray(sp.body.specialties) && sp.body.specialties.length > 0;
+  check('GET /api/food/specialties 成都/小吃 返回数据', spOk, `共 ${sp.body.specialties?.length} 道`);
+  const dish0 = sp.body.specialties?.[0] || {};
+  check('菜品字段完整', ['id', 'name', 'category', 'intro', 'tags', 'availableRestaurants'].every((k) => dish0[k] !== undefined), `${dish0.name} · 可在 ${dish0.availableRestaurants} 家吃到`);
+  const sortedDesc = sp.body.specialties.every((d, i, arr) => i === 0 || arr[i - 1].availableRestaurants >= d.availableRestaurants);
+  check('特色菜品按 availableRestaurants 倒序', sortedDesc);
+
+  // 17. 美食模块：餐厅筛选
+  const rq = '/api/food/restaurants?city=' + encodeURIComponent('北京') + '&cuisines=' + encodeURIComponent('火锅') + '&priceMin=80&priceMax=200&slot=' + encodeURIComponent('晚餐') + '&sort=rating';
+  const rp = await get(rq);
+  const rpOk = rp.status === 200 && Array.isArray(rp.body.restaurants) && rp.body.restaurants.length > 0;
+  check('GET /api/food/restaurants 北京/火锅/80–200/晚餐 返回数据', rpOk, `共 ${rp.body.restaurants?.length} 家`);
+  const rest0 = rp.body.restaurants?.[0] || {};
+  check('餐厅字段完整', ['id', 'name', 'cuisines', 'avgPrice', 'priceRange', 'location', 'hours', 'rating', 'signatureDishes'].every((k) => rest0[k] !== undefined), `${rest0.name} · 人均¥${rest0.avgPrice}`);
+  const priceInRange = rp.body.restaurants.every((r) => r.avgPrice >= 80 && r.avgPrice <= 200);
+  check('餐厅人均都在区间内', priceInRange);
+  const hasCuisine = rp.body.restaurants.every((r) => r.cuisines.includes('火锅'));
+  check('餐厅都包含指定菜系「火锅」', hasCuisine);
+  const sortByRating = rp.body.restaurants.every((r, i, arr) => i === 0 || arr[i - 1].rating >= r.rating);
+  check('餐厅按评分排序', sortByRating);
+  const hasLocation = rp.body.restaurants.every((r) => r.location.nearLandmark);
+  check('餐厅都带"距地标"参考', hasLocation);
+
+  // 18. 美食模块：个性化推荐
+  const ppRes = await fetch(BASE + '/api/food/personalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city: '成都', query: '和几个朋友吃宵夜，喜欢辣，人均 150 元每人' }),
+  });
+  const ppBody = await ppRes.json();
+  const ppOk = ppRes.status === 200 && Array.isArray(ppBody.recommendations) && ppBody.recommendations.length > 0 && Array.isArray(ppBody.parsed);
+  check('POST /api/food/personalize 返回推荐与解析', ppOk, `解析 ${ppBody.parsed?.length} 项 · 推荐 ${ppBody.recommendations?.length} 家`);
+  const parsedKeywords = (ppBody.parsed || []).map((p) => p.key);
+  check('识别到关键词「朋友」「宵夜」', parsedKeywords.includes('朋友') && parsedKeywords.includes('宵夜'));
+  check('识别到预算区间', parsedKeywords.some((k) => k.startsWith('预算')));
+  const rec0 = ppBody.recommendations?.[0] || {};
+  check('推荐字段完整（含 score / reason）', rec0.restaurant && typeof rec0.score === 'number' && typeof rec0.reason === 'string');
+
+  // 19. 美食错误处理
+  const ef1 = await get('/api/food/restaurants');
+  check('缺少 city 返回 400', ef1.status === 400 && ef1.body.error);
+  const ef2 = await get('/api/food/restaurants?city=' + encodeURIComponent('火星'));
+  check('不支持的城市返回 404', ef2.status === 404 && ef2.body.error);
+  const ef3 = await get('/api/food/restaurants?city=' + encodeURIComponent('北京') + '&slot=garbage');
+  check('非法 slot 返回 400', ef3.status === 400 && ef3.body.error);
+  const ef4 = await get('/api/food/restaurants?city=' + encodeURIComponent('北京') + '&priceMin=500&priceMax=100');
+  check('priceMin > priceMax 返回 400', ef4.status === 400 && ef4.body.error);
+  const ef5 = await fetch(BASE + '/api/food/personalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city: '成都', query: '短' }),
+  });
+  const ef5body = await ef5.json();
+  check('personalize 需求过短返回 400', ef5.status === 400 && ef5body.error);
+
+  // 20. 美食页：完整功能（非占位页）
+  const food = await fetch(BASE + '/food.html').then((r) => r.text());
+  check('美食页含 3 个 tab', food.includes('data-tab="specialty"') && food.includes('data-tab="restaurant"') && food.includes('data-tab="personalize"'));
+  check('美食页含特色菜品/餐厅/个性化三个表单', food.includes('form-specialty') && food.includes('form-restaurant') && food.includes('form-personalize'));
+  check('美食页顶栏 nav 已改为「美食」', food.match(/<a href="\/food\.html"[^>]*>美食<\/a>/) !== null);
+
+  // 21. 占位模块页可达（酒店）
+  for (const p of ['hotel']) {
     const res = await fetch(`${BASE}/${p}.html`);
     const html = await res.text();
     check(`GET /${p}.html 返回 200 且为占位页`, res.status === 200 && html.includes('coming-soon') && html.includes('开发中') && html.includes('settings.html'));
   }
 
-  // 14. 静态资源
+  // 22. 静态资源
   const css = await fetch(BASE + '/css/style.css');
   const js = await fetch(BASE + '/js/app.js');
   const sightJs = await fetch(BASE + '/js/sight.js');
   const settingsJs = await fetch(BASE + '/js/settings.js');
-  check('CSS/JS 静态资源可访问', css.status === 200 && js.status === 200 && sightJs.status === 200 && settingsJs.status === 200);
+  const foodJs = await fetch(BASE + '/js/food.js');
+  check('CSS/JS 静态资源可访问', css.status === 200 && js.status === 200 && sightJs.status === 200 && settingsJs.status === 200 && foodJs.status === 200);
 
   console.log(process.exitCode ? '\n存在失败项' : '\n全部通过');
 })().catch((err) => {

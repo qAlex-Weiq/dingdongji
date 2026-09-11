@@ -7,6 +7,7 @@ const citiesRouter = require('./routes/cities');
 const ticketRouter = require('./routes/ticket');
 const sightRouter = require('./routes/sight');
 const settingsRouter = require('./routes/settings');
+const foodRouter = require('./routes/food');
 
 function createApp() {
   const app = express();
@@ -17,12 +18,13 @@ function createApp() {
   // 共享：GET /api/cities（城市自动补全，各模块通用）
   app.use('/api', citiesRouter);
   // 车票模块：GET /api/ticket/search（机票 + 火车票）
-  // 后续模块按同样方式挂载：/api/hotel、/api/food
   app.use('/api/ticket', ticketRouter);
   // 景点模块：GET /api/sight/search（联网搜索 + 综合排序）
   app.use('/api/sight', sightRouter);
   // 设置：GET/PUT /api/settings、POST /api/settings/test
   app.use('/api/settings', settingsRouter);
+  // 美食模块：GET /api/food/cuisines|specialties|restaurants + POST /api/food/personalize
+  app.use('/api/food', foodRouter);
 
   app.use('/api', (req, res) => res.status(404).json({ error: '接口不存在' }));
 
