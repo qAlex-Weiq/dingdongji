@@ -1630,7 +1630,7 @@ body.page-home { overflow-x: hidden; overflow-x: clip; }
 
 .hero-slide {
   opacity: 0;
-  animation: hero-fade 24s linear infinite;
+  animation: hero-fade 60s linear infinite;
   will-change: opacity;
 }
 
@@ -1638,7 +1638,7 @@ body.page-home { overflow-x: hidden; overflow-x: clip; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  animation: hero-zoom 24s linear infinite;
+  animation: hero-zoom 60s linear infinite;
   will-change: transform;
 }
 
@@ -1654,20 +1654,39 @@ body.page-home { overflow-x: hidden; overflow-x: clip; }
 .hero-slide:nth-child(4),
 .hero-slide:nth-child(4) img { animation-delay: 18s; }
 
-/* 4 张幻灯片，每 6 秒切换，约 2 秒交叉淡入淡出 */
+.hero-slide:nth-child(5),
+.hero-slide:nth-child(5) img { animation-delay: 24s; }
+
+.hero-slide:nth-child(6),
+.hero-slide:nth-child(6) img { animation-delay: 30s; }
+
+.hero-slide:nth-child(7),
+.hero-slide:nth-child(7) img { animation-delay: 36s; }
+
+.hero-slide:nth-child(8),
+.hero-slide:nth-child(8) img { animation-delay: 42s; }
+
+.hero-slide:nth-child(9),
+.hero-slide:nth-child(9) img { animation-delay: 48s; }
+
+.hero-slide:nth-child(10),
+.hero-slide:nth-child(10) img { animation-delay: 54s; }
+
+/* 10 张幻灯片，每 6 秒切换（整轮 60s），约 2 秒交叉淡入淡出；
+   每张占整轮的 10%，关键帧按比例设定淡入 1.7%、保持至 10%、淡出至 13.3% */
 @keyframes hero-fade {
-  0%   { opacity: 0; }
-  4%   { opacity: 1; }
-  25%  { opacity: 1; }
-  33%  { opacity: 0; }
-  100% { opacity: 0; }
+  0%    { opacity: 0; }
+  1.7%  { opacity: 1; }
+  10%   { opacity: 1; }
+  13.3% { opacity: 0; }
+  100%  { opacity: 0; }
 }
 
-/* Ken Burns 缓慢推近：scale(1) → scale(1.05) */
+/* Ken Burns 缓慢推近：scale(1) → scale(1.05)，覆盖单张可见窗口 */
 @keyframes hero-zoom {
-  0%   { transform: scale(1); }
-  33%  { transform: scale(1.05); }
-  100% { transform: scale(1.05); }
+  0%    { transform: scale(1); }
+  13.3% { transform: scale(1.05); }
+  100%  { transform: scale(1.05); }
 }
 
 /* 暗角渐变，保证标题可读并过渡到页面底色 */
