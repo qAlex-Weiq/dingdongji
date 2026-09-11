@@ -29,6 +29,11 @@ function check(name, cond, extra = '') {
   check('航班字段完整', ['flightNo', 'airline', 'depTime', 'arrTime', 'depAirport', 'arrAirport', 'durationMin', 'price'].every((k) => f[k] !== undefined), `${f.flightNo} ${f.depTime}-${f.arrTime} ¥${f.price}`);
   const t = r1.body.trains?.[0] || {};
   check('车次字段完整', ['trainNo', 'depTime', 'arrTime', 'depStation', 'arrStation', 'durationMin', 'seats'].every((k) => t[k] !== undefined), `${t.trainNo} ${t.depTime}-${t.arrTime}`);
+  check('火车数据源标识有效', r1.body.trainsSource === '12306' || r1.body.trainsSource === 'local', `trainsSource=${r1.body.trainsSource}`);
+  if (r1.body.trainsSource === '12306') {
+    const seatPrices = (r1.body.trains || []).flatMap((tr) => (tr.seats || []).map((se) => se.price)).filter((v) => typeof v === 'number');
+    check('12306 座位票价均为正数（真实票价）', seatPrices.length > 0 && seatPrices.every((v) => v > 0), `${seatPrices.length} 个座位价 · 最低 ¥${Math.min(...seatPrices)}`);
+  }
 
   // 3. 确定性：同条件两次查询结果一致
   const r2 = await get(q);
@@ -221,7 +226,7 @@ function check(name, cond, extra = '') {
   check('POST /api/food/personalize 返回推荐与解析', ppOk, `解析 ${ppBody.parsed?.length} 项 · 推荐 ${ppBody.recommendations?.length} 家`);
   const parsedKeywords = (ppBody.parsed || []).map((p) => p.key);
   check('识别到关键词「朋友」「宵夜」', parsedKeywords.includes('朋友') && parsedKeywords.includes('宵夜'));
-  check('识别到预算区间', parsedKeywords.some((k) => k.startsWith('预算')));
+  check('识别到预算区间（price 类型或 预算/人均 前缀）', (ppBody.parsed || []).some((p) => p.type === 'price') || parsedKeywords.some((k) => /^预算|^人均/.test(k)), `keys: ${parsedKeywords.join('、')}`);
   const rec0 = ppBody.recommendations?.[0] || {};
   check('推荐字段完整（含 score / reason）', rec0.restaurant && typeof rec0.score === 'number' && typeof rec0.reason === 'string');
 

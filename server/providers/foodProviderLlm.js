@@ -6,7 +6,7 @@
  * 通过提示词让模型输出结构化 JSON，归一化为与本地数据源相同的字段结构。
  *
  * 三个能力（与 foodProvider 本地实现同构）：
- *   - searchSpecialties(cityName, category) 特色菜品列表
+ *   - getSpecialties(cityName, category) 特色菜品列表
  *   - searchRestaurants(cityName, filters)  餐厅筛选列表
  *   - personalize(cityName, query)          个性化推荐
  *
@@ -66,6 +66,11 @@ async function fetchWithTimeout(url, options, timeoutMs = 90000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`LLM 请求超时（${Math.round(timeoutMs / 1000)} 秒），请稍后重试或检查接口地址`);
+    }
+    throw new Error(`LLM 请求失败：${err.message}（请检查 API 地址与网络连通性）`);
   } finally {
     clearTimeout(timer);
   }
@@ -121,7 +126,7 @@ function buildRestaurantsPrompt(cityName, filters) {
   return `你是一位专业的中国美食向导。请列出「${regionName(cityName)}」值得去的餐厅${condText}，要求：
 
 1. 数量 8-10 家，按评分从高到低排列；均为该城市真实存在、口碑较好的餐厅（可带分店名）；
-2. cuisines 为菜系数组（如 川菜 / 火锅 / 小吃）；avgPrice 为人均消费（整数元）；priceMin/priceMax 为大致区间；
+2. cuisines 为菜系数组（如 川菜 / 火锅 / 小吃）；avgPrice 为人均消费（整数元），必须符合当地真实物价水平，参考区间：街头小吃 15-40 元、快餐小馆 30-60 元、普通正餐 60-150 元、火锅烤鱼 80-180 元、中档宴请 150-400 元、高档餐厅 400-1200 元；不确定时给出保守估值，禁止编造极端价格（如人均 3 元或 99999 元）；priceMin/priceMax 为大致区间；
 3. open/close 为营业时间（HH:MM 格式，跨夜门店 close 可小于 open）；slots 为供应时段数组（早餐/午餐/下午茶/晚餐/夜宵）；
 4. rating 为 0-5 评分（参考大众点评水平，保留 1 位小数）；reviewCount 为评价数量（整数）；
 5. address 为大致地址；district 为所在区；nearLandmark 为相对市中心/地标的位置描述（如「距春熙路约 1 km」）；
@@ -160,7 +165,7 @@ function buildPersonalizePrompt(cityName, query) {
 
 请分两步输出：
 
-第一步 parsed：从需求中识别关键偏好，每项 {key, hint, type}，type ∈ taste(口味)/companion(同行人)/slot(时段)/facility(设施)/price(价位)；
+第一步 parsed：从需求中识别关键偏好，每项 {key, hint, type}，type ∈ taste(口味)/companion(同行人)/slot(时段)/facility(设施)/price(价位)；其中 price 类的 key 必须以「预算」开头（如「预算150元」），其余类型的 key 直接用偏好词本身；
 第二步 recommendations：推荐 5-6 家符合需求的餐厅（该城市真实存在、口碑较好，可带分店名），restaurant 字段结构完整（与大众点评信息一致），score 为 0-100 的匹配度整数，reason 为一句推荐理由（20 字以内，需点明匹配的需求点，如「人均符合预算；适合朋友聚餐」）。
 
 只输出一个 JSON 对象（json 模式），不要任何解释文字，格式如下：
@@ -262,16 +267,22 @@ function normalizeRestaurant(item) {
   if (!item || typeof item !== 'object') return null;
   const name = pick(item, 'name', '名称', '餐厅名称');
   if (!name) return null;
-  const avgPrice = normalizeNumber(pick(item, 'avgPrice', '人均', '人均消费'), 80);
-  const priceMin = normalizeNumber(pick(item, 'priceMin', '人均下限'), Math.max(0, Math.round(avgPrice * 0.6)));
-  const priceMax = normalizeNumber(pick(item, 'priceMax', '人均上限'), Math.round(avgPrice * 1.5));
+  // 价格真实性防线：极端离谱（<=5 或 >5000）视为模型幻觉，置 null 由前端显示「以门店为准」；
+  // 其余裁剪到 [10, 3000] 合理区间
+  const clampPrice = (v) => Math.min(3000, Math.max(10, Math.round(v)));
+  const rawAvg = normalizeNumber(pick(item, 'avgPrice', '人均', '人均消费'), 80);
+  const avgPrice = rawAvg <= 5 || rawAvg > 5000 ? null : clampPrice(rawAvg);
+  const rawMin = normalizeNumber(pick(item, 'priceMin', '人均下限'), avgPrice != null ? Math.round(avgPrice * 0.6) : null);
+  const rawMax = normalizeNumber(pick(item, 'priceMax', '人均上限'), avgPrice != null ? Math.round(avgPrice * 1.5) : null);
+  const priceMin = avgPrice == null ? null : Math.max(1, Math.min(avgPrice, clampPrice(rawMin)));
+  const priceMax = avgPrice == null ? null : Math.max(avgPrice, clampPrice(rawMax));
   const rating = normalizeNumber(pick(item, 'rating', '评分'), 4.5);
   return {
-    id: `llm-${String(name).replace(/\s+/g, '').slice(0, 20)}-${Math.abs(String(name).length * 31 + Math.round(avgPrice))}`,
+    id: `llm-${String(name).replace(/\s+/g, '').slice(0, 20)}-${Math.abs(String(name).length * 31 + (avgPrice || 0))}`,
     name: String(name),
     cuisines: normalizeTags(pick(item, 'cuisines', '菜系'), 4),
-    avgPrice: Math.max(0, Math.round(avgPrice)),
-    priceRange: `¥${Math.round(priceMin)}–${Math.round(priceMax)}`,
+    avgPrice,
+    priceRange: avgPrice == null ? null : `¥${priceMin}–${priceMax}`,
     location: {
       address: String(pick(item, 'address', '地址') || '以门店公示为准'),
       district: String(pick(item, 'district', '区域', '所在区') || ''),
@@ -279,7 +290,7 @@ function normalizeRestaurant(item) {
     },
     hours: normalizeHours(item),
     rating: Math.min(5, Math.max(0, Math.round(rating * 10) / 10)),
-    reviewCount: Math.max(0, Math.round(normalizeNumber(pick(item, 'reviewCount', '评价数', '评论数'), 1000))),
+    reviewCount: Math.min(500000, Math.max(0, Math.round(normalizeNumber(pick(item, 'reviewCount', '评价数', '评论数'), 1000)))),
     tags: normalizeTags(pick(item, 'tags', '标签'), 4),
     signatureDishes: normalizeTags(pick(item, 'signatureDishes', '招牌菜', '推荐菜'), 4),
     reservation: Boolean(pick(item, 'reservation', '预订', '支持预订')),
@@ -345,7 +356,7 @@ async function callLlm(prompt) {
 // 对外接口
 // ---------------------------------------------------------------------------
 
-async function searchSpecialties(cityName, category) {
+async function getSpecialties(cityName, category) {
   const content = await callLlm(buildSpecialtiesPrompt(cityName, category));
   const parsed = extractJson(content);
   const arr = parsed && Array.isArray(parsed.specialties) ? parsed.specialties : (Array.isArray(parsed) ? parsed : null);
@@ -372,8 +383,9 @@ async function searchRestaurants(cityName, filters = {}) {
     throw new Error(`LLM 输出的餐厅数据无效（共 ${arr.length} 条）`);
   }
   const sort = filters.sort || 'rating';
-  if (sort === 'priceAsc') items.sort((a, b) => a.avgPrice - b.avgPrice);
-  else if (sort === 'priceDesc') items.sort((a, b) => b.avgPrice - a.avgPrice);
+  const priceOf = (r) => (r.avgPrice == null ? Number.MAX_SAFE_INTEGER : r.avgPrice);
+  if (sort === 'priceAsc') items.sort((a, b) => priceOf(a) - priceOf(b));
+  else if (sort === 'priceDesc') items.sort((a, b) => priceOf(b) - priceOf(a));
   else if (sort === 'openFirst') items.sort((a, b) => {
     if (a.hours.isOpenNow !== b.hours.isOpenNow) return a.hours.isOpenNow ? -1 : 1;
     return b.rating - a.rating;
@@ -419,4 +431,4 @@ async function personalize(cityName, query) {
   return { parsed: parsedItems, recommendations, hint: null };
 }
 
-module.exports = { meta, isConfigured, searchSpecialties, searchRestaurants, personalize };
+module.exports = { meta, isConfigured, getSpecialties, searchRestaurants, personalize, _internal: { normalizeRestaurant } };

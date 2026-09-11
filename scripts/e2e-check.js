@@ -77,6 +77,11 @@ const path = require('path');
   const firstTrain = await page.locator('#trains-panel .card').first().innerText();
   console.log('首张火车票卡片摘要:', firstTrain.replace(/\s+/g, ' ').slice(0, 120));
 
+  // 火车数据源徽标（12306 实时 / 模拟数据）
+  const trainNote = (await page.locator('#trains-panel .source-note').first().innerText()).trim();
+  if (!/12306 实时数据|模拟数据/.test(trainNote)) throw new Error(`火车数据源徽标异常：${trainNote}`);
+  console.log(`火车数据源徽标: ${trainNote}`);
+
   // 排序
   await page.selectOption('#sort-select', 'price');
   await page.waitForTimeout(300);
@@ -192,10 +197,10 @@ const path = require('path');
   await page.fill('#city-input', '成都');
   await page.selectOption('#specialty-category', '小吃');
   await page.click('#form-specialty button[type="submit"]');
-  await page.waitForSelector('#specialty-panel .dish-card', { timeout: 5000 });
-  const dishCount = await page.locator('#specialty-panel .dish-card').count();
+  await page.waitForSelector('#specialty-panel .sight-card', { timeout: 5000 });
+  const dishCount = await page.locator('#specialty-panel .sight-card').count();
   console.log(`特色菜品（成都 小吃）: ${dishCount} 道`);
-  const firstDish = (await page.locator('#specialty-panel .dish-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 120);
+  const firstDish = (await page.locator('#specialty-panel .sight-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 120);
   console.log('首顶菜品:', firstDish);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-specialty.png'), fullPage: false });
 
@@ -209,17 +214,17 @@ const path = require('path');
   await page.fill('#price-max', '200');
   await page.selectOption('#slot-select', '晚餐');
   await page.click('#form-restaurant button[type="submit"]');
-  await page.waitForSelector('#restaurant-panel .rest-card', { timeout: 5000 });
-  const restCount = await page.locator('#restaurant-panel .rest-card').count();
+  await page.waitForSelector('#restaurant-panel .sight-card', { timeout: 60000 });
+  const restCount = await page.locator('#restaurant-panel .sight-card').count();
   console.log(`餐厅（北京/火锅/80–200）: ${restCount} 家`);
-  const firstRest = (await page.locator('#restaurant-panel .rest-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 140);
+  const firstRest = (await page.locator('#restaurant-panel .sight-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 140);
   console.log('首家餐厅:', firstRest);
   // 标题：检查 ·ƙ�餐· / 人均·存在 距地标 参考
-  const restCards = page.locator('#restaurant-panel .rest-card');
+  const restCards = page.locator('#restaurant-panel .sight-card');
   for (let i = 0; i < await restCards.count(); i++) {
     const t = await restCards.nth(i).innerText();
     // 顾客经过☎️ + 地区/距地标信息
-    if (!t.includes('\ud83d\udccd') && !t.includes('地区') && !t.includes('km')) throw new Error(`餐厅缺少位置`);
+    if (!t.includes('地址') && !t.includes('km')) throw new Error(`餐厅缺少位置`);
     if (!t.includes('人均')) throw new Error('餐厅缺少人均');
   }
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-restaurant.png'), fullPage: false });
@@ -230,16 +235,16 @@ const path = require('path');
   await page.fill('#city-input', '成都');
   await page.fill('#query-input', '和几个朋友吃宵夜，喜欢辣，150 元每人');
   await page.click('#form-personalize button[type="submit"]');
-  await page.waitForSelector('#personalize-list .rest-card', { timeout: 5000 });
-  const recCount = await page.locator('#personalize-list .rest-card').count();
+  await page.waitForSelector('#personalize-list .sight-card', { timeout: 60000 });
+  const recCount = await page.locator('#personalize-list .sight-card').count();
   const parsedCount = await page.locator('#parsed-chips .parsed-chip').count();
   console.log(`个性化（成都/朋友/宵夜）: 解析 ${parsedCount} 项 · 推荐 ${recCount} 家`);
   if (parsedCount < 2) throw new Error('个性化解析太少');
   if (recCount < 1) throw new Error('个性化没出推荐');
   // 标题：第一家需包含 号码 + 匹配度
-  const firstRec = (await page.locator('#personalize-list .rest-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 180);
+  const firstRec = (await page.locator('#personalize-list .sight-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 180);
   console.log('首家推荐:', firstRec);
-  if (!firstRec.includes('分')) throw new Error('个性化匹配度缺失');
+  if (!firstRec.includes('匹配指数')) throw new Error('个性化匹配度缺失');
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-personalize.png'), fullPage: false });
 
   // 移动端 餐厅 tab 截图
@@ -255,7 +260,7 @@ const path = require('path');
   await page.click('#tab-specialty');
   await page.waitForTimeout(200);
   await page.click('#form-specialty button[type="submit"]');
-  await page.waitForSelector('#specialty-panel .dish-card', { timeout: 5000 });
+  await page.waitForSelector('#specialty-panel .sight-card', { timeout: 5000 });
   const badgeText = (await page.locator('#result-summary .source-badge').innerText()).trim();
   console.log(`美食数据源徽标: ${badgeText}`);
   if (!badgeText.includes('本地数据')) throw new Error(`source 徽标异常：得到 ${badgeText}`);
@@ -293,7 +298,7 @@ const path = require('path');
     if (!String(errTip).includes('未配置')) throw new Error(`未配置高德 Key 应提示未配置，实际：${errTip}`);
     console.log(`高德未配置 Key 时的错误提示: ${String(errTip).trim()}`);
   } else {
-    await page.waitForSelector('#restaurant-panel .rest-card', { timeout: 30000 });
+    await page.waitForSelector('#restaurant-panel .sight-card', { timeout: 30000 });
     const amapBadge = (await page.locator('#result-summary .source-badge').innerText()).trim();
     if (!amapBadge.includes('高德地图')) throw new Error(`高德徽标异常：${amapBadge}`);
     console.log(`高德真实数据徽标: ${amapBadge}`);

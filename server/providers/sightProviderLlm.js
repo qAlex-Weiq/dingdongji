@@ -38,6 +38,11 @@ async function fetchWithTimeout(url, options, timeoutMs = 90000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`LLM 请求超时（${Math.round(timeoutMs / 1000)} 秒），请稍后重试或检查接口地址`);
+    }
+    throw new Error(`LLM 请求失败：${err.message}（请检查 API 地址与网络连通性）`);
   } finally {
     clearTimeout(timer);
   }

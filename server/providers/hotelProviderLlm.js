@@ -39,6 +39,11 @@ async function fetchWithTimeout(url, options, timeoutMs = 90000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`LLM 请求超时（${Math.round(timeoutMs / 1000)} 秒），请稍后重试或检查接口地址`);
+    }
+    throw new Error(`LLM 请求失败：${err.message}（请检查 API 地址与网络连通性）`);
   } finally {
     clearTimeout(timer);
   }
@@ -54,7 +59,7 @@ function buildPrompt(cityName, prefs) {
 2. 价格档位：${tierRangeText(tier)}，推荐的酒店 price 需落在该区间；
 3. 位置偏好：${locationText(location)}，优先推荐符合位置偏好的酒店，不足时可用交通便利的替代；
 4. tier 字段取值只能是：经济型 / 舒适型 / 高档型 / 豪华型；
-5. price 为每晚参考均价（元，整数）；rating 为 0-5 一位小数；popularity 为 0-100 整数；
+5. price 为每晚参考均价（元，整数），须符合该档位在国内的真实行情，不确定时给保守估值，禁止编造极端价格（如 1 元或 99999 元）；rating 为 0-5 一位小数；popularity 为 0-100 整数；
 6. tags 包含位置标签（市中心 / 近地铁 / 近火车站 / 近机场 / 景点周边，按实际情况选取）与特色标签；
 7. address 尽量给到区级或地标级位置；desc 为 40 字以内的推荐理由；
 8. 只推荐真实存在、知名度较高的酒店，不要虚构名称。
@@ -115,7 +120,9 @@ function normalizeItem(item) {
     rating: Number.isFinite(rating) ? Math.min(5, Math.max(0, Number(rating.toFixed(1)))) : null,
     popularity: Number.isFinite(popularity) ? Math.min(100, Math.max(0, Math.round(popularity))) : null,
     tier,
-    price: Number.isFinite(price) && price > 0 ? Math.round(price) : null,
+    // 价格真实性防线：<=50 或 >50000 视为模型幻觉置 null；
+    // 其余按档位区间放宽 20% 裁剪（与 priceInTierLoose 口径一致）
+    price: normalizeTierPrice(price, tier),
     address: String(pick(item, ['address', '地址']) || '地址待补全').trim(),
     desc: String(pick(item, ['desc', '简介', '推荐理由']) || '').trim(),
     tags,
@@ -181,6 +188,20 @@ async function searchHotels(cityName, prefs = {}) {
   return hotels;
 }
 
+/** 中文档位标签 -> 英文 key（TIERS 以英文 key 存档位区间） */
+const TIER_KEY_BY_LABEL = Object.fromEntries(Object.entries(TIERS).map(([k, t]) => [t.label, k]));
+
+/** 价格真实性防线：极端值置 null，其余按档位区间（放宽 20%）裁剪 */
+function normalizeTierPrice(price, tierLabel) {
+  if (!Number.isFinite(price) || price <= 50 || price > 50000) return null;
+  const t = TIERS[TIER_KEY_BY_LABEL[tierLabel]] || TIERS.any;
+  let min = 0;
+  let max = Infinity;
+  if (t.min > 0) min = Math.round(t.min * 0.8);
+  if (Number.isFinite(t.max)) max = Math.round(t.max * 1.2);
+  return Math.round(Math.min(max, Math.max(min, price)));
+}
+
 /** 宽松档位匹配：允许 20% 越界（LLM 价格为估算值，避免过度剔除） */
 function priceInTierLoose(price, tier) {
   const t = TIERS[tier];
@@ -190,4 +211,4 @@ function priceInTierLoose(price, tier) {
   return price >= min && price < max;
 }
 
-module.exports = { meta, isConfigured, searchHotels };
+module.exports = { meta, isConfigured, searchHotels, _internal: { normalizeTierPrice } };

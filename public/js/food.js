@@ -36,6 +36,10 @@
 
   // ---------- 工具 ----------
 
+  const STAR_SVG =
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg>';
+
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -201,21 +205,31 @@
       root.innerHTML = '<p class="empty-tip">暂无该分类的特色菜品，试试其他分类。</p>';
       return;
     }
-    list.forEach((d) => {
+    list.forEach((d, i) => {
       const card = document.createElement('article');
-      card.className = 'card dish-card';
+      card.className = 'card sight-card';
+      const tags = (d.tags || [])
+        .slice(0, 4)
+        .map((t) => `<span class="tag-soft">${escapeHtml(t)}</span>`)
+        .join('');
+      const meta = [
+        ['最佳', d.season || '四季'],
+        ['可尝', `市内约 ${d.availableRestaurants} 家`],
+      ]
+        .filter(([, v]) => v)
+        .map(([k, v]) => `<span class="sight-meta-item"><i>${k}</i>${escapeHtml(v)}</span>`)
+        .join('');
       card.innerHTML = `
-        <header class="card-head">
-          <h3 class="dish-name">${escapeHtml(d.name)}</h3>
-          <span class="dish-cat">${escapeHtml(d.category)}</span>
-        </header>
-        <p class="dish-intro">${escapeHtml(d.intro)}</p>
-        ${d.culture ? `<p class="dish-culture">${escapeHtml(d.culture)}</p>` : ''}
-        <ul class="dish-tags">${(d.tags || []).map((t) => `<li class="chip tag-chip">${escapeHtml(t)}</li>`).join('')}</ul>
-        <footer class="dish-foot">
-          <span class="dish-season">最佳：${escapeHtml(d.season || '四季')}</span>
-          <span class="dish-availability">市内 <strong>${d.availableRestaurants}</strong> 家可尝</span>
-        </footer>
+        <div class="sight-rank ${i < 3 ? 'rank-top' : ''}">${i + 1}</div>
+        <div class="card-main">
+          <div class="card-top">
+            <span class="carrier">${escapeHtml(d.name)}</span>
+            <span class="tag-soft">${escapeHtml(d.category)}</span>
+          </div>
+          <p class="sight-desc">${escapeHtml(d.intro)}</p>
+          <div class="sight-meta">${meta}</div>
+          ${tags ? `<div class="sight-tags">${tags}</div>` : ''}
+        </div>
       `;
       root.appendChild(card);
     });
@@ -278,40 +292,58 @@
       root.innerHTML = '<p class="empty-tip">暂无符合条件的餐厅，试试放宽筛选条件。</p>';
       return;
     }
-    list.forEach((r) => {
+    list.forEach((r, i) => {
       const card = document.createElement('article');
-      card.className = 'card rest-card';
-      const stars = renderStars(r.rating);
-      const openBadge = r.hours.isOpenNow
-        ? '<span class="open-badge open">营业中</span>'
-        : '<span class="open-badge closed">未营业</span>';
-      card.innerHTML = `
-        <header class="card-head">
-          <h3 class="rest-name">${escapeHtml(r.name)}</h3>
-          ${openBadge}
-        </header>
-        <div class="rest-meta">
-          <span class="cuisines">${r.cuisines.map((c) => `<span class="chip cuisine-chip">${escapeHtml(c)}</span>`).join('')}</span>
-          <span class="price">人均 ${r.avgPrice == null ? '<strong>以现场为准</strong>' : `<strong>¥${r.avgPrice}</strong> · ${escapeHtml(r.priceRange)}`}</span>
-        </div>
-        <div class="rest-info">
-          <p class="line"><span class="ico">📍</span>${escapeHtml(r.location.district)} ${escapeHtml(r.location.address)}${r.location.nearLandmark ? ' · <em>' + escapeHtml(r.location.nearLandmark) + '</em>' : ''}</p>
-          <p class="line"><span class="ico">🕒</span>${escapeHtml(r.hours.open)}–${escapeHtml(r.hours.close)} · 时段：${r.hours.slots.join(' / ')}</p>
-          <p class="line"><span class="ico">⭐</span>${stars} <span class="rating-num">${r.rating.toFixed(1)}</span> · ${r.reviewCount ? r.reviewCount.toLocaleString('zh-CN') + ' 条评价' : '评价数暂无'}</p>
-          <p class="line tags-line"><span class="ico">🏷️</span>${(r.tags || []).map((t) => `<span class="chip tag-chip">${escapeHtml(t)}</span>`).join('')}</p>
-          ${(r.signatureDishes || []).length ? `<p class="line sig-line"><span class="ico">🍴</span>招牌：${(r.signatureDishes || []).map((d) => `<span class="sig-dish">${escapeHtml(d)}</span>`).join('、')}</p>` : ''}
-          ${r.reservation ? `<p class="line"><span class="ico">📅</span>${escapeHtml(r.reservation)}</p>` : ''}
-        </div>
-      `;
+      card.className = 'card sight-card';
+      card.innerHTML = restaurantCard(r, i);
       root.appendChild(card);
     });
   }
 
-  function renderStars(rating) {
-    const full = Math.floor(rating);
-    const half = (rating - full) >= 0.5 ? 1 : 0;
-    const empty = 5 - full - half;
-    return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+  /** 餐厅卡（与景点/酒店卡片同构）：编号 + 名称/菜系/评分/营业 + 招牌菜 + 营业/地址 + 人均参考价 */
+  function restaurantCard(r, i) {
+    const openBadge = r.hours.isOpenNow
+      ? '<span class="open-badge open">营业中</span>'
+      : '<span class="open-badge closed">未营业</span>';
+    const signature = (r.signatureDishes || []).length
+      ? `<p class="sight-desc">招牌：${(r.signatureDishes || []).slice(0, 3).map((d) => escapeHtml(d)).join('、')}</p>`
+      : '';
+    const addr = [
+      [r.location.district, r.location.address].filter(Boolean).map(escapeHtml).join(' '),
+      r.location.nearLandmark ? escapeHtml(r.location.nearLandmark) : '',
+    ].filter(Boolean).join(' · ');
+    const meta = [
+      ['营业', `${escapeHtml(r.hours.open)}–${escapeHtml(r.hours.close)}`],
+      ['地址', addr],
+    ]
+      .filter(([, v]) => v)
+      .map(([k, v]) => `<span class="sight-meta-item"><i>${k}</i>${v}</span>`)
+      .join('');
+    const tags = (r.tags || [])
+      .slice(0, 4)
+      .map((t) => `<span class="tag-soft">${escapeHtml(t)}</span>`)
+      .join('');
+    const price = r.avgPrice == null
+      ? '<div class="sight-score"><em>—</em><span>人均以门店为准</span></div>'
+      : `<div class="sight-score"><em>¥${r.avgPrice}</em><span>人均参考</span></div>`;
+    return `
+      <article class="card sight-card">
+        <div class="sight-rank ${i < 3 ? 'rank-top' : ''}">${i + 1}</div>
+        <div class="card-main">
+          <div class="card-top">
+            <span class="carrier">${escapeHtml(r.name)}</span>
+            <span class="tag-soft">${escapeHtml((r.cuisines || [])[0] || '美食')}</span>
+            <span class="sight-rating">${STAR_SVG}${r.rating.toFixed(1)}</span>
+            ${openBadge}
+          </div>
+          ${signature}
+          <div class="sight-meta">${meta}</div>
+          ${tags ? `<div class="sight-tags">${tags}</div>` : ''}
+        </div>
+        <div class="card-side sight-side">
+          ${price}
+        </div>
+      </article>`;
   }
 
   // ---------- Tab 3: 个性化 ----------
@@ -381,32 +413,19 @@
     }
     list.forEach((rec, idx) => {
       const r = rec.restaurant;
-      const stars = renderStars(r.rating);
-      const openBadge = r.hours.isOpenNow
-        ? '<span class="open-badge open">营业中</span>'
-        : '<span class="open-badge closed">未营业</span>';
       const card = document.createElement('article');
-      card.className = 'card rest-card';
-      card.innerHTML = `
-        <header class="card-head">
-          <span class="rank">${idx + 1}</span>
-          <h3 class="rest-name">${escapeHtml(r.name)}</h3>
-          ${openBadge}
-          <span class="match-score" title="匹配度">${(rec.score * 100).toFixed(0)} 分</span>
-        </header>
-        <div class="reason-tag">${escapeHtml(rec.reason)}</div>
-        <div class="rest-meta">
-          <span class="cuisines">${r.cuisines.map((c) => `<span class="chip cuisine-chip">${escapeHtml(c)}</span>`).join('')}</span>
-          <span class="price">人均 ${r.avgPrice == null ? '<strong>以现场为准</strong>' : `<strong>¥${r.avgPrice}</strong> · ${escapeHtml(r.priceRange)}`}</span>
-        </div>
-        <div class="rest-info">
-          <p class="line"><span class="ico">📍</span>${escapeHtml(r.location.district)} ${escapeHtml(r.location.address)}${r.location.nearLandmark ? ' · <em>' + escapeHtml(r.location.nearLandmark) + '</em>' : ''}</p>
-          <p class="line"><span class="ico">🕒</span>${escapeHtml(r.hours.open)}–${escapeHtml(r.hours.close)} · 时段：${r.hours.slots.join(' / ')}</p>
-          <p class="line"><span class="ico">⭐</span>${stars} <span class="rating-num">${r.rating.toFixed(1)}</span> · ${r.reviewCount ? r.reviewCount.toLocaleString('zh-CN') + ' 条评价' : '评价数暂无'}</p>
-          <p class="line tags-line"><span class="ico">🏷️</span>${(r.tags || []).map((t) => `<span class="chip tag-chip">${escapeHtml(t)}</span>`).join('')}</p>
-          ${(r.signatureDishes || []).length ? `<p class="line sig-line"><span class="ico">🍴</span>招牌：${(r.signatureDishes || []).map((d) => `<span class="sig-dish">${escapeHtml(d)}</span>`).join('、')}</p>` : ''}
-        </div>
-      `;
+      card.className = 'card sight-card';
+      // 复用餐厅卡结构；推荐理由替换招牌菜行（无招牌菜则插到营业信息前），侧边加匹配指数
+      let html = restaurantCard(r, idx);
+      if (html.includes('<p class="sight-desc">')) {
+        html = html.replace(/<p class="sight-desc">[\s\S]*?<\/p>/, `<p class="sight-desc">${escapeHtml(rec.reason)}</p>`);
+      } else {
+        html = html.replace('<div class="sight-meta">', `<p class="sight-desc">${escapeHtml(rec.reason)}</p><div class="sight-meta">`);
+      }
+      card.innerHTML = html.replace(
+        '<div class="card-side sight-side">',
+        `<div class="card-side sight-side"><div class="sight-score"><em>${rec.score}</em><span>匹配指数</span></div>`
+      );
       personalizeList.appendChild(card);
     });
   }
