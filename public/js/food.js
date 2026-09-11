@@ -299,6 +299,8 @@
   function renderRestaurants(list) {
     const root = resultPanels.restaurant;
     root.innerHTML = '';
+    // 暴露给 cart.js 反查完整条目（按名称）
+    window.__ddjRendered = { ...(window.__ddjRendered || {}), food: list };
     if (!list.length) {
       root.innerHTML = '<p class="empty-tip">暂无符合条件的餐厅，试试放宽筛选条件。</p>';
       return;
@@ -353,6 +355,7 @@
         </div>
         <div class="card-side sight-side">
           ${price}
+          ${window.Cart && r.city ? Cart.addButton('food', r.city, r) : ''}
         </div>
       </article>`;
   }

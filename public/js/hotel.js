@@ -207,6 +207,8 @@
     if (!state.data || state.loading) return;
     // 按本次查询的档位做严格价格过滤（前端防线，与后端同一套数值区间）
     const list = sorted(state.data.hotels.filter((h) => inPriceRange(h.price, state.data.tier)));
+    // 暴露给 cart.js 反查完整条目（按名称）
+    window.__ddjRendered = { ...(window.__ddjRendered || {}), hotel: list };
     els.list.innerHTML =
       list.length === 0 ? emptyHtml() : list.map(hotelCard).join('');
   }
@@ -267,6 +269,7 @@
             <em>${h.score}</em>
             <span>综合指数</span>
           </div>
+          ${window.Cart && state.data ? Cart.addButton('hotel', state.data.city, h) : ''}
         </div>
       </article>`;
   }

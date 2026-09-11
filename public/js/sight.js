@@ -68,6 +68,18 @@
 
     // 点击景点卡片（或卡片上的「地图」按钮）在地图中查看实际位置
     els.list.addEventListener('click', (e) => {
+      // 「加入行程」按钮单独处理，不触发地图弹窗
+      const cartBtn = e.target.closest('.cart-add-btn');
+      if (cartBtn) {
+        e.stopPropagation();
+        const idx = Number(e.target.closest('.sight-card').dataset.index);
+        const sight = state.rendered[idx];
+        if (sight && state.data) {
+          Cart.toggle('sight', state.data.city, sight);
+          renderList(); // 重渲染以更新按钮态
+        }
+        return;
+      }
       const card = e.target.closest('.sight-card');
       if (!card || card.classList.contains('skeleton')) return;
       const idx = Number(card.dataset.index);
@@ -269,6 +281,7 @@
             <span>综合指数</span>
           </div>
           <button type="button" class="map-btn" aria-label="在地图中查看${esc(s.name)}的位置">${MAP_PIN_SVG}地图</button>
+          ${window.Cart && state.data ? Cart.addButton('sight', state.data.city, s) : ''}
         </div>
       </article>`;
   }

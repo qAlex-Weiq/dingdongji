@@ -9,6 +9,7 @@ const sightRouter = require('./routes/sight');
 const hotelRouter = require('./routes/hotel');
 const settingsRouter = require('./routes/settings');
 const foodRouter = require('./routes/food');
+const planRouter = require('./routes/plan');
 
 function createApp() {
   const app = express();
@@ -28,6 +29,8 @@ function createApp() {
   app.use('/api/settings', settingsRouter);
   // 美食模块：GET /api/food/cuisines|specialties|restaurants + POST /api/food/personalize
   app.use('/api/food', foodRouter);
+  // 行程规划：POST /api/plan（行程篮 → 确定性编排 + Agent 文案）
+  app.use('/api/plan', planRouter);
 
   app.use('/api', (req, res) => res.status(404).json({ error: '接口不存在' }));
 
