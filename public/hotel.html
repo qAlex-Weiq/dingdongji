@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>酒店 · 叮咚机旅行规划</title>
-  <meta name="description" content="酒店模块：城市酒店查询、筛选与比价（开发中）">
+  <title>酒店搜索 · 叮咚机旅行规划</title>
+  <meta name="description" content="输入城市，选择价格档位与位置偏好，一键获取该城市酒店，按热度与评分综合排序">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -26,24 +26,74 @@
   </header>
 
   <main class="container">
-    <section class="coming-soon">
-      <span class="cs-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
-      </span>
-      <h1>酒店模块</h1>
-      <span class="cs-badge">开发中</span>
-      <p class="cs-hint">正在规划以下能力：</p>
-      <ul class="cs-list">
-        <li>按城市与入住日期查询酒店房源</li>
-        <li>价格、星级、位置多维度筛选</li>
-        <li>房型与房价对比</li>
-      </ul>
-      <div><a class="cs-back" href="/">返回首页</a></div>
+    <section class="hero">
+      <h1>选好偏好，一键找到合适的酒店</h1>
+      <p>选价格档位、挑位置偏好，联网搜索城市酒店，按热度与评分综合排序</p>
+    </section>
+
+    <section class="search-card search-card-hotel" aria-label="酒店查询">
+      <form id="hotel-form" autocomplete="off" novalidate>
+        <div class="field field-city">
+          <label for="city-input">目的地城市</label>
+          <input id="city-input" list="city-list" placeholder="如：成都" maxlength="12" required>
+        </div>
+        <div class="field field-source">
+          <label for="source-select">数据来源</label>
+          <select id="source-select">
+            <option value="auto">自动（推荐）</option>
+            <option value="local">本地数据（秒开）</option>
+            <option value="llm">AI 联网搜索（较慢）</option>
+          </select>
+        </div>
+        <button type="submit" class="search-btn" id="search-btn">搜 索</button>
+
+        <div class="chip-row" role="radiogroup" aria-label="价格档位">
+          <span class="chip-row-label">价格档位</span>
+          <label class="chip"><input type="radio" name="tier" value="any" checked><span>不限</span></label>
+          <label class="chip"><input type="radio" name="tier" value="budget"><span>经济型</span></label>
+          <label class="chip"><input type="radio" name="tier" value="comfort"><span>舒适型</span></label>
+          <label class="chip"><input type="radio" name="tier" value="upscale"><span>高档型</span></label>
+          <label class="chip"><input type="radio" name="tier" value="luxury"><span>豪华型</span></label>
+        </div>
+
+        <div class="chip-row" role="radiogroup" aria-label="位置偏好">
+          <span class="chip-row-label">位置偏好</span>
+          <label class="chip"><input type="radio" name="location" value="any" checked><span>不限</span></label>
+          <label class="chip"><input type="radio" name="location" value="downtown"><span>市中心</span></label>
+          <label class="chip"><input type="radio" name="location" value="station"><span>火车站周边</span></label>
+          <label class="chip"><input type="radio" name="location" value="airport"><span>机场周边</span></label>
+          <label class="chip"><input type="radio" name="location" value="scenic"><span>景点周边</span></label>
+        </div>
+      </form>
+      <datalist id="city-list"></datalist>
+      <p id="source-hint" class="source-hint" hidden>
+        AI 联网搜索需实时生成内容，约需 10~40 秒，请耐心等待；如需秒开结果，可选择「本地数据」。
+      </p>
+    </section>
+
+    <section id="result-section" class="result-section" hidden>
+      <div class="result-toolbar">
+        <div class="sight-summary" id="hotel-summary"></div>
+        <div class="sort">
+          <label for="sort-select">排序</label>
+          <select id="sort-select">
+            <option value="score">综合推荐</option>
+            <option value="rating">评分最高</option>
+            <option value="popularity">热度优先</option>
+            <option value="priceAsc">低价优先</option>
+            <option value="priceDesc">高价优先</option>
+          </select>
+        </div>
+      </div>
+      <div id="hotel-list" class="list sight-list"></div>
     </section>
   </main>
 
   <footer class="footer">
-    <div class="container">各模块数据为演示数据，仅用于框架演示 · 叮咚机旅行规划</div>
+    <div class="container">酒店价格与评分仅供参考，以预订平台实时信息为准 · 叮咚机旅行规划</div>
   </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/hotel.js"></script>
 </body>
 </html>

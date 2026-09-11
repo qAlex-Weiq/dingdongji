@@ -6,6 +6,7 @@ require('./lib/env'); // 加载根目录 .env（必须在读取环境变量的�
 const citiesRouter = require('./routes/cities');
 const ticketRouter = require('./routes/ticket');
 const sightRouter = require('./routes/sight');
+const hotelRouter = require('./routes/hotel');
 const settingsRouter = require('./routes/settings');
 const foodRouter = require('./routes/food');
 
@@ -21,6 +22,8 @@ function createApp() {
   app.use('/api/ticket', ticketRouter);
   // 景点模块：GET /api/sight/search（联网搜索 + 综合排序）
   app.use('/api/sight', sightRouter);
+  // 酒店模块：GET /api/hotel/search（联网搜索 + 偏好筛选 + 综合排序）
+  app.use('/api/hotel', hotelRouter);
   // 设置：GET/PUT /api/settings、POST /api/settings/test
   app.use('/api/settings', settingsRouter);
   // 美食模块：GET /api/food/cuisines|specialties|restaurants + POST /api/food/personalize

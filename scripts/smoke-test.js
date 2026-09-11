@@ -77,6 +77,46 @@ function check(name, cond, extra = '') {
   const se4 = await get('/api/sight/search?city=' + encodeURIComponent('北京') + '&source=xxx');
   check('非法 source 参数返回 400', se4.status === 400 && se4.body.error);
 
+  // 8.5 酒店模块：正常查询（显式 local 数据源，快速且确定）
+  const h1 = await get('/api/hotel/search?city=' + encodeURIComponent('成都') + '&source=local');
+  const okH1 = h1.status === 200 && h1.body.hotels?.length > 0 && h1.body.source === 'local' && h1.body.count > 0;
+  check('GET /api/hotel/search 成都&source=local 返回酒店列表', okH1,
+    `来源 ${h1.body.source} / ${h1.body.count} 家酒店`);
+  const hh = h1.body.hotels?.[0] || {};
+  check('酒店字段完整', ['name', 'rating', 'tier', 'price', 'address', 'desc', 'score', 'rank'].every((k) => hh[k] !== undefined), `No.${hh.rank} ${hh.name}（${hh.tier} ¥${hh.price} score ${hh.score}）`);
+  const hScores = (h1.body.hotels || []).map((x) => x.score);
+  check('酒店按综合得分降序排列', hScores.every((v, i) => i === 0 || hScores[i - 1] >= v));
+
+  // 8.6 酒店模块：价格档位 + 位置偏好筛选
+  const h2 = await get('/api/hotel/search?city=' + encodeURIComponent('北京') + '&tier=luxury&source=local');
+  const okH2 = h2.status === 200 && h2.body.hotels?.length > 0 &&
+    h2.body.hotels.every((x) => x.tier === '豪华型' || x.price >= 1000);
+  check('价格档位筛选（北京 豪华型）', okH2, `${h2.body.count} 家豪华型`);
+  const h3 = await get('/api/hotel/search?city=' + encodeURIComponent('成都') + '&location=station&source=local');
+  const okH3 = h3.status === 200 && h3.body.hotels?.length > 0 &&
+    h3.body.hotels.every((x) => (x.tags || []).includes('近火车站'));
+  check('位置偏好筛选（成都 火车站周边）', okH3, `${h3.body.count} 家近火车站`);
+
+  // 8.7 酒店模块：拼音匹配 + 缓存 + 错误处理 + 数据源状态
+  const h4 = await get('/api/hotel/search?city=hangzhou&source=local');
+  check('酒店拼音匹配城市（hangzhou → 杭州）', h4.status === 200 && h4.body.city === '杭州' && h4.body.hotels?.length > 0);
+  const h5 = await get('/api/hotel/search?city=hangzhou&source=local');
+  check('酒店同条件二次查询命中缓存', h5.status === 200 && h5.body.cached === true);
+  const he1 = await get('/api/hotel/search');
+  check('酒店查询缺少 city 返回 400', he1.status === 400 && he1.body.error);
+  const he2 = await get('/api/hotel/search?city=火星');
+  check('酒店查询不支持的城市返回 404', he2.status === 404 && he2.body.error);
+  const he3 = await get('/api/hotel/search?city=' + encodeURIComponent('北京') + '&tier=xxx');
+  check('酒店非法 tier 参数返回 400', he3.status === 400 && he3.body.error);
+  const he4 = await get('/api/hotel/search?city=' + encodeURIComponent('北京') + '&location=xxx');
+  check('酒店非法 location 参数返回 400', he4.status === 400 && he4.body.error);
+  const he5 = await get('/api/hotel/search?city=' + encodeURIComponent('北京') + '&source=xxx');
+  check('酒店非法 source 参数返回 400', he5.status === 400 && he5.body.error);
+  const he6 = await get('/api/hotel/sources');
+  const okHe6 = he6.status === 200 && Array.isArray(he6.body.sources) && he6.body.sources.some((x) => x.name === 'local');
+  check('GET /api/hotel/sources 返回数据源状态', okHe6,
+    he6.body.sources?.map((x) => `${x.name}:${x.configured ? 'on' : 'off'}`).join(' '));
+
   // 9. 设置模块：读取 / 保存 / 恢复 / 密钥脱敏
   const st1 = await get('/api/settings');
   const okSt1 = st1.status === 200 && st1.body.effective && typeof st1.body.effective.llmReady === 'boolean' && typeof st1.body.user.llmApiKeyMasked !== 'undefined';
@@ -108,11 +148,15 @@ function check(name, cond, extra = '') {
   });
   check('PUT 空配置返回 400', putEmpty.status === 400);
 
-  // 10. 景点模块：auto 模式（真实降级链，LLM 已配置时约 10~40 秒）
+  // 10. 景点/酒店模块：auto 模式（真实降级链，LLM 已配置时约 10~40 秒）
   const sAuto = await get('/api/sight/search?city=' + encodeURIComponent('西安'));
   const okAuto = sAuto.status === 200 && sAuto.body.sights?.length > 0 && ['amap', 'llm', 'local'].includes(sAuto.body.source);
   check('GET /api/sight/search 西安（auto 降级链）', okAuto,
     `来源 ${sAuto.body.source} / ${sAuto.body.count} 个景点`);
+  const hAuto = await get('/api/hotel/search?city=' + encodeURIComponent('西安') + '&tier=comfort&location=downtown');
+  const okHAuto = hAuto.status === 200 && hAuto.body.hotels?.length > 0 && ['amap', 'llm', 'local'].includes(hAuto.body.source);
+  check('GET /api/hotel/search 西安（auto 降级链 + 偏好）', okHAuto,
+    `来源 ${hAuto.body.source} / ${hAuto.body.count} 家酒店`);
 
   // 11. 页面：首页四模块入口
   const home = await fetch(BASE + '/').then((r) => r.text());
@@ -204,20 +248,21 @@ function check(name, cond, extra = '') {
   check('美食页含特色菜品/餐厅/个性化三个表单', food.includes('form-specialty') && food.includes('form-restaurant') && food.includes('form-personalize'));
   check('美食页顶栏 nav 已改为「美食」', food.match(/<a href="\/food\.html"[^>]*>美食<\/a>/) !== null);
 
-  // 21. 占位模块页可达（酒店）
-  for (const p of ['hotel']) {
-    const res = await fetch(`${BASE}/${p}.html`);
-    const html = await res.text();
-    check(`GET /${p}.html 返回 200 且为占位页`, res.status === 200 && html.includes('coming-soon') && html.includes('开发中') && html.includes('settings.html'));
-  }
+  // 21. 酒店页：完整功能（非占位页）
+  const hotelPage = await fetch(BASE + '/hotel.html');
+  const hotelHtml = await hotelPage.text();
+  check('GET /hotel.html 返回 200 且为可用页', hotelPage.status === 200 && hotelHtml.includes('hotel-form') && !hotelHtml.includes('coming-soon'));
+  check('酒店页包含偏好选项（价格档位 + 位置偏好）', hotelHtml.includes('name="tier"') && hotelHtml.includes('name="location"') && hotelHtml.includes('chip-row'));
+  check('首页酒店模块状态为可用', /href="\/hotel\.html"[\s\S]*?st-live/.test(home));
 
   // 22. 静态资源
   const css = await fetch(BASE + '/css/style.css');
   const js = await fetch(BASE + '/js/app.js');
   const sightJs = await fetch(BASE + '/js/sight.js');
+  const hotelJs = await fetch(BASE + '/js/hotel.js');
   const settingsJs = await fetch(BASE + '/js/settings.js');
   const foodJs = await fetch(BASE + '/js/food.js');
-  check('CSS/JS 静态资源可访问', css.status === 200 && js.status === 200 && sightJs.status === 200 && settingsJs.status === 200 && foodJs.status === 200);
+  check('CSS/JS 静态资源可访问', css.status === 200 && js.status === 200 && sightJs.status === 200 && hotelJs.status === 200 && settingsJs.status === 200 && foodJs.status === 200);
 
   console.log(process.exitCode ? '\n存在失败项' : '\n全部通过');
 })().catch((err) => {

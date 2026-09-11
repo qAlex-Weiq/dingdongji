@@ -3,7 +3,8 @@
 /**
  * 无头浏览器端到端验证：
  * 1. 首页四模块入口 → 2. 进入车票模块查询 北京→上海 → 3. 校验机票/火车票渲染与交互
- * 4. 景点模块搜索成都，校验卡片渲染与排序 → 5. 酒店/饭店占位页可达 → 6. 截图存档
+ * 4. 景点模块搜索成都，校验卡片渲染与排序 → 5. 美食模块三 tab 校验
+ * 6. 酒店模块偏好筛选 + 渲染校验 → 7. 截图存档
  */
 
 const path = require('path');
@@ -194,7 +195,7 @@ const path = require('path');
   console.log(`餐厅（北京/火锅/80–200）: ${restCount} 家`);
   const firstRest = (await page.locator('#restaurant-panel .rest-card').first().innerText()).replace(/\s+/g, ' ').slice(0, 140);
   console.log('首家餐厅:', firstRest);
-  // 标题：检查 ·ƙ�餐· / 人均·存在 距地标 参考
+  // 标题：检查 ·ƙ�餐· / 人均·存在 距地标 参考
   const restCards = page.locator('#restaurant-panel .rest-card');
   for (let i = 0; i < await restCards.count(); i++) {
     const t = await restCards.nth(i).innerText();
@@ -229,13 +230,53 @@ const path = require('path');
   await page.waitForTimeout(200);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-food-mobile.png'), fullPage: false });
 
-  // ---- 占位模块页（hotel） ----
-  for (const p of ['hotel']) {
-    await page.goto(`http://localhost:3000/${p}.html`, { waitUntil: 'networkidle' });
-    const heading = (await page.locator('.coming-soon h1').innerText()).trim();
-    const badge = (await page.locator('.cs-badge').innerText()).trim();
-    console.log(`${p}.html: ${heading}（${badge}）`);
+  // ---- 酒店模块：偏好选择 + 搜索成都 → 校验渲染与筛选 ----
+  await page.goto('http://localhost:3000/hotel.html', { waitUntil: 'networkidle' });
+  const hotelNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
+  console.log(`酒店模块导航高亮: ${hotelNav}`);
+
+  // 偏好 chips：默认「不限」，点击药丸选中舒适型 + 市中心（input 视觉隐藏，点击可见的 label）
+  const chipCount = await page.locator('.chip input').count();
+  console.log(`偏好选项（价格档位 + 位置偏好）: ${chipCount} 个`);
+  await page.click('.chip:has(input[name="tier"][value="comfort"])');
+  await page.click('.chip:has(input[name="location"][value="downtown"])');
+  const tierChecked = await page.isChecked('input[name="tier"][value="comfort"]');
+  const locChecked = await page.isChecked('input[name="location"][value="downtown"]');
+  if (!tierChecked || !locChecked) throw new Error('偏好 chip 选中态异常');
+
+  // 本地数据源搜索（秒开，结果确定）
+  await page.selectOption('#source-select', 'local');
+  await page.fill('#city-input', '成都');
+  await page.click('#search-btn');
+  try {
+    await page.waitForSelector('#hotel-list .card:not(.skeleton)', { timeout: 10000 });
+  } catch {
+    console.error('--- 等待酒店卡片超时，dump 调试信息 ---');
+    console.error('city-input 值:', await page.inputValue('#city-input'));
+    console.error('tier/location checked:', await page.isChecked('input[name="tier"][value="comfort"]'), '/', await page.isChecked('input[name="location"][value="downtown"]'));
+    console.error('source-select 值:', await page.inputValue('#source-select'));
+    console.error('结果区可见性:', await page.locator('#result-section').isVisible());
+    console.error('hotel-list HTML 前 600 字:');
+    console.error((await page.locator('#hotel-list').innerHTML()).slice(0, 600));
+    throw new Error('酒店卡片未在 10s 内渲染');
   }
+  const hotelCards = await page.locator('#hotel-list .card:not(.skeleton)').count();
+  console.log(`酒店卡片（舒适型 · 市中心）: ${hotelCards} 张`);
+  const hotelSummary = (await page.locator('#hotel-summary').innerText()).replace(/\s+/g, ' ');
+  console.log('酒店结果摘要:', hotelSummary.slice(0, 80));
+  if (!hotelSummary.includes('舒适型')) throw new Error('摘要未包含价格档位条件');
+  const firstHotel = await page.locator('#hotel-list .card').first().innerText();
+  console.log('首张酒店卡片摘要:', firstHotel.replace(/\s+/g, ' ').slice(0, 120));
+  const tierTag = await page.locator('#hotel-list .card .tier-tag').first().innerText();
+  if (tierTag.trim() !== '舒适型') throw new Error(`首张卡片档位异常: ${tierTag}`);
+
+  // 切换排序：低价优先
+  await page.selectOption('#sort-select', 'priceAsc');
+  await page.waitForTimeout(300);
+  const lowestPrice = await page.locator('#hotel-list .card .hotel-price em').first().innerText();
+  console.log('按价格升序后最低价:', lowestPrice.trim());
+
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-hotel.png'), fullPage: false });
 
   await browser.close();
 

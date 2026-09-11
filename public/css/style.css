@@ -1232,6 +1232,35 @@ button { font-family: inherit; }
     margin-top: 2px;
   }
 
+  /* 酒店模块移动端适配：表单纵向堆叠，chip 行左对齐换行 */
+  .search-card-hotel #hotel-form { grid-template-columns: 1fr; }
+
+  .chip-row-label { min-width: 100%; }
+
+  .hotel-card { grid-template-columns: auto 1fr; }
+
+  .hotel-side {
+    grid-column: 1 / -1;
+    border-top: 1px dashed #e4e7ee;
+    flex-direction: row;
+    justify-content: space-between;
+    padding-top: 10px;
+    margin-top: 2px;
+    min-width: 0;
+  }
+
+  .hotel-price {
+    text-align: left;
+    margin-bottom: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .hotel-price.tba { align-items: center; }
+
+  .hotel-price em { font-size: 20px; }
+
   /* 设置页移动端适配 */
   .settings-actions { flex-direction: column; }
   .settings-actions .search-btn,
@@ -1424,3 +1453,115 @@ button { font-family: inherit; }
 .module-nav .nav-settings { color: var(--text-3); }
 .module-nav .nav-settings:hover,
 .module-nav .nav-settings.is-active { color: var(--primary); }
+
+/* ---------- 酒店模块 ---------- */
+
+/* 查询表单：城市 + 数据来源 + 按钮 一行，偏好 chip 整行铺开 */
+.search-card-hotel #hotel-form {
+  grid-template-columns: 1fr 170px auto;
+  align-items: end;
+}
+
+/* 偏好选择行（价格档位 / 位置偏好） */
+.chip-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.chip-row-label {
+  font-size: 12px;
+  color: var(--text-3);
+  letter-spacing: 1px;
+  padding-left: 2px;
+  min-width: 60px;
+}
+
+.chip { cursor: pointer; }
+
+/* 单选框视觉隐藏，样式由相邻的 span（药丸）呈现 */
+.chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip span {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+  background: #f7f8fa;
+  user-select: none;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.chip:hover span {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.chip input:checked + span {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.chip input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 档位标签（卡片内，颜色随档位区分） */
+.tier-tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tier-budget  { background: rgba(22, 163, 74, 0.1);   color: #15803d; }
+.tier-comfort { background: rgba(29, 79, 145, 0.08);  color: var(--primary); }
+.tier-upscale { background: rgba(109, 40, 217, 0.1);  color: #6d28d9; }
+.tier-luxury  { background: rgba(180, 83, 9, 0.12);   color: #b45309; }
+
+/* 卡片右侧：价格 + 综合指数（价格用品牌强调色） */
+.hotel-side { min-width: 96px; }
+
+.hotel-price {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.hotel-price em {
+  display: block;
+  font-style: normal;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.hotel-price em small {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hotel-price span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.hotel-price.tba em {
+  font-size: 13px;
+  color: var(--text-3);
+  font-weight: 500;
+  padding-top: 6px;
+}
