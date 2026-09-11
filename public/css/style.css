@@ -165,14 +165,13 @@ button { font-family: inherit; }
 
 .search-btn {
   height: 44px;
+  padding: 0 26px;
   border: none;
   border-radius: 10px;
   background: var(--primary);
   color: #fff;
   font-size: 15.5px;
   font-weight: 600;
-  letter-spacing: 6px;
-  text-indent: 6px;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
@@ -1043,11 +1042,6 @@ button { font-family: inherit; }
 
 /* ---------- 景点模块 ---------- */
 
-.search-card-sight #sight-form {
-  grid-template-columns: 1fr auto;
-  align-items: end;
-}
-
 .field-city { min-width: 0; }
 
 .sight-summary {
@@ -1165,13 +1159,120 @@ button { font-family: inherit; }
 
 .sight-score span { font-size: 11px; color: var(--text-3); }
 
-.tag-free {
-  font-size: 11px;
-  color: var(--green);
-  background: rgba(43, 138, 62, 0.09);
-  border-radius: 999px;
-  padding: 1px 8px;
+/* 景点卡片可点击查看地图 */
+.sight-card:not(.skeleton) { cursor: pointer; }
+
+.sight-card:not(.skeleton):hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
 }
+
+.map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.map-btn svg { width: 14px; height: 14px; }
+
+.map-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+/* ---------- 景点地图弹窗 ---------- */
+
+.map-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+
+.map-modal-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.map-modal-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(860px, 100%);
+  height: min(620px, 80vh);
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.32);
+  overflow: hidden;
+}
+
+.map-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.map-modal-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.map-modal-title b { font-size: 15.5px; }
+
+.map-modal-title span {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.map-modal-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+
+.map-open-link {
+  font-size: 12.5px;
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.map-open-link:hover { text-decoration: underline; }
+
+.map-close-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: #eef1f6;
+  color: var(--text-2);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.map-close-btn:hover { background: #e2e6ee; color: var(--text); }
+
+.map-frame { flex: 1; width: 100%; border: none; display: block; }
 
 .sk-rank { width: 30px; height: 30px; border-radius: 9px; flex: none; }
 
@@ -1261,6 +1362,12 @@ button { font-family: inherit; }
 
   .hotel-price em { font-size: 20px; }
 
+  /* 地图弹窗移动端适配 */
+  .map-modal { padding: 12px; }
+  .map-modal-body { height: 74vh; }
+  .map-modal-header { padding: 10px 12px; }
+  .map-open-link { display: none; }
+
   /* 设置页移动端适配 */
   .settings-actions { flex-direction: column; }
   .settings-actions .search-btn,
@@ -1297,6 +1404,7 @@ button { font-family: inherit; }
 
 .search-card-sight #sight-form {
   grid-template-columns: minmax(0, 1fr) 190px auto;
+  gap: 14px;
   align-items: end;
 }
 

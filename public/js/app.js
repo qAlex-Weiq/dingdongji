@@ -134,7 +134,7 @@
   function setLoading(loading) {
     state.loading = loading;
     els.searchBtn.disabled = loading;
-    els.searchBtn.textContent = loading ? '查询中…' : '查 询';
+    els.searchBtn.textContent = loading ? '查询中…' : '查询';
     if (loading) {
       els.resultSection.hidden = false;
       renderSkeleton(els.panels[state.activeTab]);
@@ -225,7 +225,7 @@
         <div class="card-side">
           <div class="price"><em>¥</em>${f.price}</div>
           <div class="price-meta">经济舱 · ${esc(f.discountLabel)}</div>
-          <button class="select-btn" type="button" data-action="select">选 择</button>
+          <button class="select-btn" type="button" data-action="select">选择</button>
         </div>
       </article>`;
   }
@@ -269,7 +269,7 @@
         </div>
         <div class="card-side">
           <div class="price"><em>¥</em>${minPrice}<span class="price-from">起</span></div>
-          <button class="select-btn" type="button" data-action="select">选 择</button>
+          <button class="select-btn" type="button" data-action="select">选择</button>
         </div>
       </article>`;
   }

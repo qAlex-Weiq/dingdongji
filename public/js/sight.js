@@ -20,12 +20,20 @@
     sort: $('#sort-select'),
     cityList: $('#city-list'),
     toast: $('#toast'),
+    mapModal: $('#map-modal'),
+    mapMask: $('#map-modal-mask'),
+    mapClose: $('#map-modal-close'),
+    mapFrame: $('#map-frame'),
+    mapName: $('#map-modal-name'),
+    mapAddr: $('#map-modal-addr'),
+    mapOpen: $('#map-modal-open'),
   };
 
   const state = {
     sort: 'score',  // 'score' | 'rating' | 'popularity' | 'free'
-    source: 'auto', // 'auto' | 'local' | 'llm'
+    source: 'local', // 'local' | 'llm'
     data: null,     // { city, source, sourceLabel, count, sights }
+    rendered: [],   // 当前渲染的景点列表（排序后），供地图弹窗按索引取值
     loading: false,
   };
 
@@ -37,6 +45,11 @@
   const STAR_SVG =
     '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
     '<path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg>';
+
+  const MAP_PIN_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 
   // ---------- 初始化 ----------
 
@@ -52,6 +65,56 @@
       updateHint();
     });
     updateHint();
+
+    // 点击景点卡片（或卡片上的「地图」按钮）在地图中查看实际位置
+    els.list.addEventListener('click', (e) => {
+      const card = e.target.closest('.sight-card');
+      if (!card || card.classList.contains('skeleton')) return;
+      const idx = Number(card.dataset.index);
+      const sight = state.rendered[idx];
+      if (sight) openMap(sight);
+    });
+
+    // 地图弹窗关闭：关闭按钮 / 遮罩 / Esc 键
+    els.mapClose.addEventListener('click', closeMap);
+    els.mapMask.addEventListener('click', closeMap);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !els.mapModal.hidden) closeMap();
+    });
+  }
+
+  // ---------- 地图弹窗 ----------
+
+  /**
+   * 打开地图弹窗，展示景点实际位置。
+   * 有经纬度（高德数据源）时精确定位打点；否则按「城市 + 景点名」跳转高德搜索页。
+   */
+  function openMap(sight) {
+    const city = state.data ? state.data.city : '';
+    const name = sight.name || '';
+    let url;
+    const loc = sight.location;
+    if (loc && Number.isFinite(Number(loc.lng)) && Number.isFinite(Number(loc.lat))) {
+      url = `https://uri.amap.com/marker?position=${Number(loc.lng)},${Number(loc.lat)}` +
+        `&name=${encodeURIComponent(name)}&src=dingdongji&callnative=0`;
+    } else {
+      url = `https://uri.amap.com/search?keyword=${encodeURIComponent(name)}` +
+        `&city=${encodeURIComponent(city)}&src=dingdongji&callnative=0`;
+    }
+
+    els.mapName.textContent = name;
+    els.mapAddr.textContent = sight.address || '';
+    els.mapOpen.href = url;
+    els.mapFrame.src = url;
+    els.mapModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    els.mapClose.focus();
+  }
+
+  function closeMap() {
+    els.mapModal.hidden = true;
+    els.mapFrame.src = 'about:blank'; // 停止地图加载，避免后台占用
+    document.body.style.overflow = '';
   }
 
   /** AI 联网搜索较慢，切换到该选项时显示提示 */
@@ -117,7 +180,7 @@
     // AI 联网搜索耗时较长，按钮文案区分提示
     els.searchBtn.textContent = loading
       ? (state.source === 'llm' ? 'AI 生成中…' : '搜索中…')
-      : '搜 索';
+      : '搜索';
     if (loading) {
       els.resultSection.hidden = false;
       renderSkeleton();
@@ -138,6 +201,7 @@
   function renderList() {
     if (!state.data || state.loading) return;
     const list = sorted(state.data.sights);
+    state.rendered = list;
     els.list.innerHTML =
       list.length === 0 ? emptyHtml() : list.map(sightCard).join('');
   }
@@ -183,7 +247,7 @@
       .join('');
 
     return `
-      <article class="card sight-card">
+      <article class="card sight-card" data-index="${i}" title="点击在地图中查看位置">
         <div class="sight-rank ${i < 3 ? 'rank-top' : ''}">${i + 1}</div>
         <div class="card-main">
           <div class="card-top">
@@ -201,7 +265,7 @@
             <em>${s.score}</em>
             <span>综合指数</span>
           </div>
-          ${isFree(s) ? '<span class="tag-free">免费</span>' : ''}
+          <button type="button" class="map-btn" aria-label="在地图中查看${esc(s.name)}的位置">${MAP_PIN_SVG}地图</button>
         </div>
       </article>`;
   }

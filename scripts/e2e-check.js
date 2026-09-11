@@ -100,15 +100,19 @@ const path = require('path');
   const sightNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
   console.log(`景点模块导航高亮: ${sightNav}`);
 
-  // 数据源选择器：默认 auto 时无提示，切到 llm 显示慢速提示，切回 local 隐藏
-  const hintHiddenOnAuto = !(await page.locator('#source-hint').isVisible());
+  // 数据源选择器：auto 选项已移除，默认 local 无提示，切到 llm 显示慢速提示，切回 local 隐藏
+  const autoOptionCount = await page.locator('#source-select option[value="auto"]').count();
+  if (autoOptionCount !== 0) throw new Error('数据源下拉框仍存在 auto 选项');
+  const defaultSource = await page.inputValue('#source-select');
+  if (defaultSource !== 'local') throw new Error(`数据源默认值应为 local，实际 ${defaultSource}`);
+  const hintHiddenOnDefault = !(await page.locator('#source-hint').isVisible());
   await page.selectOption('#source-select', 'llm');
   const hintVisibleOnLlm = await page.locator('#source-hint').isVisible();
   const hintText = (await page.locator('#source-hint').innerText()).replace(/\s+/g, ' ');
   console.log(`AI 慢速提示（llm 时显示）: ${hintVisibleOnLlm ? '可见' : '不可见'} - ${hintText.slice(0, 50)}`);
   await page.selectOption('#source-select', 'local');
   const hintHiddenOnLocal = !(await page.locator('#source-hint').isVisible());
-  if (!hintHiddenOnAuto || !hintVisibleOnLlm || !hintHiddenOnLocal) {
+  if (!hintHiddenOnDefault || !hintVisibleOnLlm || !hintHiddenOnLocal) {
     throw new Error('数据源慢速提示显隐逻辑异常');
   }
 
@@ -140,6 +144,20 @@ const path = require('path');
   await page.waitForTimeout(300);
   const topRated = await page.locator('#sight-list .card .sight-rating').first().innerText();
   console.log('按评分排序后最高分:', topRated.trim());
+
+  // 点击景点卡片 → 地图弹窗展示实际位置（高德搜索页，本地数据无经纬度）
+  await page.click('#sight-list .card');
+  await page.waitForSelector('#map-modal:not([hidden])', { timeout: 5000 });
+  const mapName = (await page.locator('#map-modal-name').innerText()).trim();
+  const mapFrameSrc = await page.getAttribute('#map-frame', 'src');
+  console.log(`地图弹窗景点: ${mapName}`);
+  console.log(`地图 iframe 地址: ${mapFrameSrc.slice(0, 90)}`);
+  if (!mapName) throw new Error('地图弹窗未显示景点名称');
+  if (!mapFrameSrc.includes('uri.amap.com')) throw new Error('地图弹窗 iframe 未指向高德地图');
+  await page.click('#map-modal-close');
+  const mapClosed = await page.locator('#map-modal').isHidden();
+  if (!mapClosed) throw new Error('地图弹窗关闭失败');
+  console.log('地图弹窗打开/关闭: 正常');
 
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-sight.png'), fullPage: false });
 

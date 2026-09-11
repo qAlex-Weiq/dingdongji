@@ -49,7 +49,7 @@ function buildPrompt(cityName) {
   const region = city ? city.name : cityName;
   return `你是一位专业的中国旅行规划师。请列出「${region}」最值得游览的景点，要求：
 
-1. 数量 8-10 个，按热门程度从高到低排列；
+1. 数量 25-30 个，按热门程度从高到低排列，严禁少于 20 个；
 2. 覆盖该城市最具代表性的地标、历史古迹、自然风光、博物馆、主题乐园等类型；
 3. 评分 rating 为 0-5 的数字（参考大众点评/携程等平台的大致水平）；
 4. 热度 popularity 为 0-100 的整数，表示游客关注程度；
@@ -176,6 +176,12 @@ async function searchSights(cityName) {
       },
     ],
     temperature: 0.3,
+    // 预留充足输出空间：25-30 个景点 JSON 较大，8192 常被截断（finish_reason=length），
+    // 16384 已实测被接口接受且输出完整；过低会导致景点数量不足或 JSON 解析失败
+    max_tokens: 16384,
+    // 关闭思考模式：deepseek 系推理模型会把 token 预算耗在 reasoning_content 上，
+    // 导致最终 content 被截断甚至为空；关闭后全部预算用于生成景点 JSON
+    thinking: { type: 'disabled' },
     // 智谱 GLM 支持 response_format（部分模型）；不支持时服务端会忽略
     response_format: { type: 'json_object' },
   };

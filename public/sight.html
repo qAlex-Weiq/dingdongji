@@ -40,12 +40,11 @@
         <div class="field field-source">
           <label for="source-select">数据来源</label>
           <select id="source-select">
-            <option value="auto">自动（推荐）</option>
             <option value="local">本地数据（秒开）</option>
             <option value="llm">AI 联网搜索（较慢）</option>
           </select>
         </div>
-        <button type="submit" class="search-btn" id="search-btn">搜 索</button>
+        <button type="submit" class="search-btn" id="search-btn">搜索</button>
       </form>
       <datalist id="city-list"></datalist>
       <p id="source-hint" class="source-hint" hidden>
@@ -73,6 +72,23 @@
   <footer class="footer">
     <div class="container">景点信息仅供参考，出行前请以景区官方公告为准 · 叮咚机旅行规划</div>
   </footer>
+
+  <div id="map-modal" class="map-modal" hidden role="dialog" aria-modal="true" aria-labelledby="map-modal-name">
+    <div class="map-modal-mask" id="map-modal-mask"></div>
+    <div class="map-modal-body">
+      <div class="map-modal-header">
+        <div class="map-modal-title">
+          <b id="map-modal-name"></b>
+          <span id="map-modal-addr"></span>
+        </div>
+        <div class="map-modal-actions">
+          <a id="map-modal-open" class="map-open-link" target="_blank" rel="noopener">在高德地图中打开</a>
+          <button type="button" class="map-close-btn" id="map-modal-close" aria-label="关闭地图">×</button>
+        </div>
+      </div>
+      <iframe id="map-frame" class="map-frame" title="景点位置地图" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/js/sight.js"></script>

@@ -31,6 +31,10 @@ const SIGHT_TYPES = [
   '060200', // 休闲广场
 ].join('|');
 
+/** 每页大小（高德 v5 上限 25）与最大拉取条数 */
+const PAGE_SIZE = 25;
+const MAX_SIGHTS = 50;
+
 /** provider 元信息 */
 const meta = {
   name: 'amap',
@@ -120,34 +124,52 @@ async function searchSights(cityName) {
   const city = findCity(cityName);
   const region = city ? city.name : cityName;
 
-  const params = new URLSearchParams({
-    key: amapKey,
-    keywords: '景点',
-    types: SIGHT_TYPES,
-    region: region,
-    city_limit: 'true',
-    show_fields: 'business,photos',
-    page_size: '25',
-    page_num: '1',
-  });
+  // 分页拉取：高德 v5 单页上限 25，逐页抓取直至取满（最多 MAX_SIGHTS 条）
+  const allPois = [];
+  let pageNum = 1;
+  let maxPage = 2; // page_size=25 × 2 = 50，与 MAX_SIGHTS 对齐
 
-  const res = await fetchWithTimeout(`${AMAP_V5_URL}?${params.toString()}`);
-  if (!res.ok) {
-    throw new Error(`高德接口 HTTP ${res.status}`);
-  }
-  const data = await res.json();
+  while (pageNum <= maxPage && allPois.length < MAX_SIGHTS) {
+    const params = new URLSearchParams({
+      key: amapKey,
+      keywords: '景点',
+      types: SIGHT_TYPES,
+      region: region,
+      city_limit: 'true',
+      show_fields: 'business,photos',
+      page_size: String(PAGE_SIZE),
+      page_num: String(pageNum),
+    });
 
-  // v5 返回 errcode=0 / status="1" 表示成功
-  if (data.errcode !== 0 || String(data.status) !== '1') {
-    throw new Error(`高德接口错误: ${data.errmsg || data.info || '未知错误'}`);
+    const res = await fetchWithTimeout(`${AMAP_V5_URL}?${params.toString()}`);
+    if (!res.ok) {
+      throw new Error(`高德接口 HTTP ${res.status}`);
+    }
+    const data = await res.json();
+
+    // v5 返回 errcode=0 / status="1" 表示成功
+    if (data.errcode !== 0 || String(data.status) !== '1') {
+      throw new Error(`高德接口错误: ${data.errmsg || data.info || '未知错误'}`);
+    }
+    const pois = Array.isArray(data.pois) ? data.pois : [];
+    if (pois.length === 0) break;
+
+    allPois.push(...pois);
+
+    // 用高德返回的总数限制翻页次数（count 为字符串）
+    const total = parseInt(String(data.count), 10);
+    if (Number.isFinite(total) && total > 0) {
+      maxPage = Math.min(maxPage, Math.ceil(Math.min(total, MAX_SIGHTS) / PAGE_SIZE));
+    }
+    pageNum += 1;
   }
-  const pois = Array.isArray(data.pois) ? data.pois : [];
-  if (pois.length === 0) {
+
+  if (allPois.length === 0) {
     throw new Error(`高德未返回「${region}」的景点数据`);
   }
 
   // 过滤无名称的脏数据并归一化
-  return pois
+  return allPois
     .filter((p) => p && asString(p.name))
     .map(normalizePoi);
 }
