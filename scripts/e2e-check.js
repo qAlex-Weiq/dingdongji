@@ -22,9 +22,10 @@ const path = require('path');
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 
   const errors = [];
+  let muteConsoleErrors = false; // 预期中的 4xx 响应测试期间静默（浏览器会把 400 记为资源加载错误）
   page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
   page.on('console', (msg) => {
-    if (msg.type() === 'error') errors.push(`console.error: ${msg.text()}`);
+    if (msg.type() === 'error' && !muteConsoleErrors) errors.push(`console.error: ${msg.text()}`);
   });
   page.on('response', (res) => {
     if (res.url().includes('/api/')) console.log(`[api] ${res.status()} ${res.url()}`);
@@ -250,6 +251,41 @@ const path = require('path');
   const hintHidden = !(await page.locator('#source-hint').isVisible());
   if (!hintHidden) throw new Error('source=auto 时慢速提示应隐藏');
   console.log('数据来源选择（下拉切换 + 徽标 + 慢速提示）验证通过');
+
+  // 高德数据源：仅餐厅 tab 可选，其他 tab 禁用并说明原因
+  const amapOption = page.locator('#source-select option[value="amap"]');
+  if (!(await amapOption.isDisabled())) throw new Error('特色菜品 tab 下高德选项应禁用');
+  const amapLabel = (await amapOption.innerText()).trim();
+  if (!amapLabel.includes('仅餐厅筛选')) throw new Error(`禁用态文案异常：${amapLabel}`);
+  await page.click('#tab-restaurant');
+  await page.waitForTimeout(200);
+  if (await amapOption.isDisabled()) throw new Error('餐厅 tab 下高德选项应可用');
+  // 切到高德提交：未配置 Key 时应展示明确错误；已配置时应返回真实餐厅数据
+  const amapCfgOn = await page.evaluate(async () => {
+    const r = await fetch('/api/food/sources');
+    const d = await r.json();
+    return Boolean((d.sources || []).find((s) => s.name === 'amap' && s.configured));
+  });
+  await page.selectOption('#source-select', 'amap');
+  muteConsoleErrors = true; // 预期 400（未配置 Key）：忽略浏览器资源加载报错
+  await page.click('#form-restaurant button[type="submit"]');
+  await page.waitForTimeout(1200);
+  if (!amapCfgOn) {
+    const errTip = await page.locator('#empty-tip').innerText().catch(() => '');
+    if (!String(errTip).includes('未配置')) throw new Error(`未配置高德 Key 应提示未配置，实际：${errTip}`);
+    console.log(`高德未配置 Key 时的错误提示: ${String(errTip).trim()}`);
+  } else {
+    await page.waitForSelector('#restaurant-panel .rest-card', { timeout: 30000 });
+    const amapBadge = (await page.locator('#result-summary .source-badge').innerText()).trim();
+    if (!amapBadge.includes('高德地图')) throw new Error(`高德徽标异常：${amapBadge}`);
+    console.log(`高德真实数据徽标: ${amapBadge}`);
+  }
+  muteConsoleErrors = false;
+  // 收尾：切回 auto 并回到特色 tab
+  await page.selectOption('#source-select', 'auto');
+  await page.click('#tab-specialty');
+  console.log('高德数据源（餐厅 tab 可用 / 其他 tab 禁用 + 提交验证）验证通过');
+
 
   // ---- 酒店模块：偏好选择 + 搜索成都 → 校验渲染与筛选 ----
   await page.goto('http://localhost:3000/hotel.html', { waitUntil: 'networkidle' });

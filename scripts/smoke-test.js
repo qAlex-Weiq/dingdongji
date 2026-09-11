@@ -244,7 +244,7 @@ function check(name, cond, extra = '') {
 
   // 20. 美食数据源
   const srcs = await get('/api/food/sources');
-  const srcsOk = srcs.status === 200 && Array.isArray(srcs.body.sources) && srcs.body.sources.length >= 2;
+  const srcsOk = srcs.status === 200 && Array.isArray(srcs.body.sources) && srcs.body.sources.length >= 3 && srcs.body.sources.some((s) => s.name === 'amap');
   check('GET /api/food/sources 返回数据源状态', srcsOk, (srcs.body.sources || []).map((s) => `${s.name}:${s.configured ? '已配置' : '未配置'}`).join(' / '));
   const badSrc = await get('/api/food/specialties?city=' + encodeURIComponent('成都') + '&source=wrong');
   check('非法 source 返回 400', badSrc.status === 400 && badSrc.body.error);
@@ -260,6 +260,18 @@ function check(name, cond, extra = '') {
   }
   const cachedSp = await get('/api/food/specialties?city=' + encodeURIComponent('成都') + '&category=' + encodeURIComponent('小吃') + '&source=local');
   check('同参数二次查询命中缓存', cachedSp.status === 200 && cachedSp.body.cached === true);
+  // 高德数据源：仅支持餐厅筛选
+  const amapCfg = (srcs.body.sources || []).find((s) => s.name === 'amap');
+  const amapSp = await get('/api/food/specialties?city=' + encodeURIComponent('成都') + '&source=amap');
+  check('source=amap 查特色菜品返回 400（高德无菜品数据）', amapSp.status === 400 && (amapSp.body.error || '').includes('不支持'), amapSp.body.error || '');
+  const amapRs = await get('/api/food/restaurants?city=' + encodeURIComponent('成都') + '&source=amap');
+  if (!amapCfg || !amapCfg.configured) {
+    check('未配置高德 Key 时 source=amap 返回 400', amapRs.status === 400 && (amapRs.body.error || '').includes('未配置'), amapRs.body.error || '');
+  } else {
+    check('已配置高德 Key 时 source=amap 返回真实餐厅', amapRs.status === 200 && amapRs.body.source === 'amap' && Array.isArray(amapRs.body.restaurants) && amapRs.body.restaurants.length > 0, `${amapRs.body.sourceLabel} · 共 ${amapRs.body.restaurants?.length} 家`);
+  }
+  const autoRs = await get('/api/food/restaurants?city=' + encodeURIComponent('成都') + '&source=auto');
+  check('餐厅筛选 auto 走 amap→llm→local 降级链', autoRs.status === 200 && ['amap', 'llm', 'local'].includes(autoRs.body.source), `实际来源：${autoRs.body.sourceLabel || autoRs.body.source}`);
 
   // 21. 美食页：完整功能（非占位页）
   const food = await fetch(BASE + '/food.html').then((r) => r.text());
@@ -267,6 +279,7 @@ function check(name, cond, extra = '') {
   check('美食页含特色菜品/餐厅/个性化三个表单', food.includes('form-specialty') && food.includes('form-restaurant') && food.includes('form-personalize'));
   check('美食页顶栏 nav 已改为「美食」', food.match(/<a href="\/food\.html"[^>]*>美食<\/a>/) !== null);
   check('美食页含数据源选择器与 AI 慢速提示', food.includes('source-select') && food.includes('source-hint') && food.includes('AI 联网搜索'));
+  check('美食页含高德数据源选项', food.includes('value="amap"') && food.includes('高德地图（真实数据）'));
 
   // 22. 酒店页：完整功能（非占位页）
   const hotelPage = await fetch(BASE + '/hotel.html');

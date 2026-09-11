@@ -69,6 +69,19 @@
   function updateSourceHint() {
     if (sourceHint && sourceSelect) sourceHint.hidden = sourceSelect.value !== 'llm';
   }
+  // 高德数据源仅支持餐厅筛选：其他标签页下禁用该选项并说明原因
+  function updateSourceOptions() {
+    if (!sourceSelect) return;
+    const amapOpt = sourceSelect.querySelector('option[value="amap"]');
+    if (!amapOpt) return;
+    const usable = currentTab === 'restaurant';
+    amapOpt.disabled = !usable;
+    amapOpt.textContent = usable ? '高德地图（真实数据）' : '高德地图（仅餐厅筛选）';
+    if (!usable && sourceSelect.value === 'amap') {
+      sourceSelect.value = 'auto';
+      updateSourceHint();
+    }
+  }
   function loadingText(fallback) {
     return sourceSelect && sourceSelect.value === 'llm' ? 'AI 生成中…' : fallback;
   }
@@ -86,6 +99,7 @@
     Object.entries(resultPanels).forEach(([k, el]) => {
       el.hidden = k !== tab;
     });
+    updateSourceOptions();
   }
 
   function requireCity() {
@@ -278,14 +292,14 @@
         </header>
         <div class="rest-meta">
           <span class="cuisines">${r.cuisines.map((c) => `<span class="chip cuisine-chip">${escapeHtml(c)}</span>`).join('')}</span>
-          <span class="price">人均 <strong>¥${r.avgPrice}</strong> · ${escapeHtml(r.priceRange)}</span>
+          <span class="price">人均 ${r.avgPrice == null ? '<strong>以现场为准</strong>' : `<strong>¥${r.avgPrice}</strong> · ${escapeHtml(r.priceRange)}`}</span>
         </div>
         <div class="rest-info">
           <p class="line"><span class="ico">📍</span>${escapeHtml(r.location.district)} ${escapeHtml(r.location.address)}${r.location.nearLandmark ? ' · <em>' + escapeHtml(r.location.nearLandmark) + '</em>' : ''}</p>
           <p class="line"><span class="ico">🕒</span>${escapeHtml(r.hours.open)}–${escapeHtml(r.hours.close)} · 时段：${r.hours.slots.join(' / ')}</p>
-          <p class="line"><span class="ico">⭐</span>${stars} <span class="rating-num">${r.rating.toFixed(1)}</span> · ${r.reviewCount.toLocaleString('zh-CN')} 条评价</p>
+          <p class="line"><span class="ico">⭐</span>${stars} <span class="rating-num">${r.rating.toFixed(1)}</span> · ${r.reviewCount ? r.reviewCount.toLocaleString('zh-CN') + ' 条评价' : '评价数暂无'}</p>
           <p class="line tags-line"><span class="ico">🏷️</span>${(r.tags || []).map((t) => `<span class="chip tag-chip">${escapeHtml(t)}</span>`).join('')}</p>
-          <p class="line sig-line"><span class="ico">🍴</span>招牌：${(r.signatureDishes || []).map((d) => `<span class="sig-dish">${escapeHtml(d)}</span>`).join('、')}</p>
+          ${(r.signatureDishes || []).length ? `<p class="line sig-line"><span class="ico">🍴</span>招牌：${(r.signatureDishes || []).map((d) => `<span class="sig-dish">${escapeHtml(d)}</span>`).join('、')}</p>` : ''}
           ${r.reservation ? `<p class="line"><span class="ico">📅</span>${escapeHtml(r.reservation)}</p>` : ''}
         </div>
       `;
@@ -383,14 +397,14 @@
         <div class="reason-tag">${escapeHtml(rec.reason)}</div>
         <div class="rest-meta">
           <span class="cuisines">${r.cuisines.map((c) => `<span class="chip cuisine-chip">${escapeHtml(c)}</span>`).join('')}</span>
-          <span class="price">人均 <strong>¥${r.avgPrice}</strong> · ${escapeHtml(r.priceRange)}</span>
+          <span class="price">人均 ${r.avgPrice == null ? '<strong>以现场为准</strong>' : `<strong>¥${r.avgPrice}</strong> · ${escapeHtml(r.priceRange)}`}</span>
         </div>
         <div class="rest-info">
           <p class="line"><span class="ico">📍</span>${escapeHtml(r.location.district)} ${escapeHtml(r.location.address)}${r.location.nearLandmark ? ' · <em>' + escapeHtml(r.location.nearLandmark) + '</em>' : ''}</p>
           <p class="line"><span class="ico">🕒</span>${escapeHtml(r.hours.open)}–${escapeHtml(r.hours.close)} · 时段：${r.hours.slots.join(' / ')}</p>
-          <p class="line"><span class="ico">⭐</span>${stars} <span class="rating-num">${r.rating.toFixed(1)}</span> · ${r.reviewCount.toLocaleString('zh-CN')} 条评价</p>
+          <p class="line"><span class="ico">⭐</span>${stars} <span class="rating-num">${r.rating.toFixed(1)}</span> · ${r.reviewCount ? r.reviewCount.toLocaleString('zh-CN') + ' 条评价' : '评价数暂无'}</p>
           <p class="line tags-line"><span class="ico">🏷️</span>${(r.tags || []).map((t) => `<span class="chip tag-chip">${escapeHtml(t)}</span>`).join('')}</p>
-          <p class="line sig-line"><span class="ico">🍴</span>招牌：${(r.signatureDishes || []).map((d) => `<span class="sig-dish">${escapeHtml(d)}</span>`).join('、')}</p>
+          ${(r.signatureDishes || []).length ? `<p class="line sig-line"><span class="ico">🍴</span>招牌：${(r.signatureDishes || []).map((d) => `<span class="sig-dish">${escapeHtml(d)}</span>`).join('、')}</p>` : ''}
         </div>
       `;
       personalizeList.appendChild(card);
@@ -415,6 +429,7 @@
   if (sourceSelect) {
     sourceSelect.addEventListener('change', updateSourceHint);
     updateSourceHint();
+    updateSourceOptions();
   }
 
   function updateCityClear() {

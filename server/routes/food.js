@@ -7,7 +7,7 @@ const { CUISINES, VALID_SLOTS } = require('../data/food');
 
 const router = express.Router();
 
-const VALID_SOURCES = ['auto', 'local', 'llm'];
+const VALID_SOURCES = ['auto', 'local', 'llm', 'amap'];
 
 /** 校验 source 参数；返回小写规范值或抛 400 响应 */
 function parseSource(raw) {
@@ -37,7 +37,7 @@ router.get('/sources', (_req, res) => {
 /**
  * GET /api/food/specialties?city=成都&category=小吃&source=auto
  * 特色菜品：按推荐店铺数倒序返回。
- * source 可选：auto（默认，LLM→本地降级）/ local / llm；显式指定时不降级。
+ * source 可选：auto（默认，按能力降级）/ amap / local / llm；显式指定时不降级。
  */
 router.get('/specialties', async (req, res, next) => {
   try {

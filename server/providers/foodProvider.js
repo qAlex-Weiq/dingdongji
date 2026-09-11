@@ -3,13 +3,16 @@
 /**
  * 美食模块数据源统一入口。
  *
- * 二级降级链（自动选择第一个可用的数据源）：
- *   1. llm   - LLM Agent 生成（需 LLM_API_KEY，推荐，数据真实）
- *   2. local - 内置数据集（离线兜底，无需任何 Key）
+ * 降级链（自动模式，按能力过滤后依次尝试）：
+ *   - 餐厅筛选：amap → llm → local（三级，与景点模块一致）
+ *     amap - 高德地图 POI 真实数据（需 AMAP_KEY，含评分/人均/营业时间）
+ *   - 特色菜品 / 个性化：llm → local（高德无菜品维度与自然语言能力）
+ *     llm   - LLM Agent 生成（需 LLM_API_KEY）
+ *   - local - 内置数据集（离线兜底，无需任何 Key）
  *
  * 数据源选择（优先级从高到低）：
  *   1. 调用方显式指定 options.source（前端「数据来源」下拉框）
- *   2. 环境变量 FOOD_SOURCE 强制指定：llm / local
+ *   2. 环境变量 FOOD_SOURCE 强制指定：amap / llm / local
  *   3. 自动降级链
  *
  * 其他特性：
@@ -22,6 +25,7 @@
  *   personalize({ city, query, source })         个性化推荐
  */
 
+const amap = require('./foodProviderAmap');
 const llm = require('./foodProviderLlm');
 const {
   SPECIALTY_DISHES,
@@ -32,8 +36,13 @@ const {
 const { findCity } = require('../data/cities');
 const { haversineKm } = require('../lib/geo');
 
-/** 数据源注册表（顺序即降级优先级） */
-const SOURCES = [llm];
+/** 数据源注册表（顺序即降级优先级；各源按能力暴露方法，注册顺序与能力无关） */
+const SOURCES = [amap, llm];
+
+/** 按能力过滤数据源链（如高德仅实现 searchRestaurants） */
+function capabilityChain(chain, method) {
+  return chain.filter((s) => typeof s[method] === 'function');
+}
 
 // ---------------------------------------------------------------------------
 // 时间工具
@@ -405,18 +414,19 @@ function recordSuccess(sourceName) {
 /** 解析生效数据源：显式指定 > 环境变量（仅 auto 时） > 自动降级链 */
 function resolveChain(requested) {
   const src = String(requested || 'auto').trim().toLowerCase();
-  if (!['auto', 'local', 'llm'].includes(src)) {
-    throw new Error(`无效的数据源「${requested}」，可选：auto / local / llm`);
+  if (!['auto', 'local', 'llm', 'amap'].includes(src)) {
+    throw new Error(`无效的数据源「${requested}」，可选：auto / local / llm / amap`);
   }
 
   let effective = src;
-  if (src === 'auto' && process.env.FOOD_SOURCE && ['llm', 'local'].includes(process.env.FOOD_SOURCE)) {
+  if (src === 'auto' && process.env.FOOD_SOURCE && ['amap', 'llm', 'local'].includes(process.env.FOOD_SOURCE)) {
     effective = process.env.FOOD_SOURCE;
   }
 
   if (effective === 'local') return { chain: [localSource], explicit: true };
   if (effective === 'llm') return { chain: [llm], explicit: true };
-  // auto：降级链 llm → local（llm 未配置/熔断时自动跳过）
+  if (effective === 'amap') return { chain: [amap], explicit: true };
+  // auto：降级链 amap → llm → local（高德/LLM 未配置/熔断时自动跳过）
   const chain = SOURCES.filter((s) => !isBroken(s.meta.name));
   return { chain: [...chain, localSource], explicit: false };
 }
@@ -473,17 +483,21 @@ async function runWithSources(cacheKey, chain, runner, explicit) {
 // 对外接口（返回 { source, sourceLabel, cached, ...数据 }）
 // ---------------------------------------------------------------------------
 
-/** 特色菜品：按推荐店铺数倒序 */
+/** 特色菜品：按推荐店铺数倒序（高德无菜品数据，能力过滤后走 llm → local） */
 async function getSpecialties({ city, category, source } = {}) {
   const found = findCity(city);
   const canonical = found ? found.name : city;
-  const { chain, explicit } = resolveChain(source);
-  const cacheKey = JSON.stringify(['specialties', canonical, category || '全部', chain.map((s) => s.meta.name).join('>')]);
-  return runWithSources(cacheKey, chain, (src) =>
-    src.getSpecialties(canonical, category).then((specialties) => ({ specialties })), explicit);
+  const { chain } = resolveChain(source);
+  const capable = capabilityChain(chain, 'getSpecialties');
+  if (!capable.length) {
+    throw new Error(`「${chain[0].meta.label}」数据源不支持特色菜品查询，请选择「AI 联网搜索」或「本地数据」`);
+  }
+  const cacheKey = JSON.stringify(['specialties', canonical, category || '全部', capable.map((s) => s.meta.name).join('>')]);
+  return runWithSources(cacheKey, capable, (src) =>
+    src.getSpecialties(canonical, category).then((specialties) => ({ specialties })), capable.length === 1 && chain.length === 1);
 }
 
-/** 餐厅筛选：菜系 / 人均 / 时段 / 营业中 / 排序 */
+/** 餐厅筛选：菜系 / 人均 / 时段 / 营业中 / 排序（三级降级 amap → llm → local，与景点一致） */
 async function searchRestaurants({
   city,
   cuisines = [],
@@ -496,27 +510,35 @@ async function searchRestaurants({
 } = {}) {
   const found = findCity(city);
   const canonical = found ? found.name : city;
-  const { chain, explicit } = resolveChain(source);
+  const { chain } = resolveChain(source);
+  const capable = capabilityChain(chain, 'searchRestaurants');
+  if (!capable.length) {
+    throw new Error(`「${chain[0].meta.label}」数据源不支持餐厅筛选`);
+  }
   const cacheKey = JSON.stringify([
     'restaurants', canonical, cuisines, priceMin, priceMax, slot, Boolean(openNow), sort,
-    chain.map((s) => s.meta.name).join('>'),
+    capable.map((s) => s.meta.name).join('>'),
   ]);
-  return runWithSources(cacheKey, chain, (src) =>
-    src.searchRestaurants(canonical, { cuisines, priceMin, priceMax, slot, openNow, sort }).then((restaurants) => ({ restaurants })), explicit);
+  return runWithSources(cacheKey, capable, (src) =>
+    src.searchRestaurants(canonical, { cuisines, priceMin, priceMax, slot, openNow, sort }).then((restaurants) => ({ restaurants })), capable.length === 1 && chain.length === 1);
 }
 
-/** 个性化推荐：根据自然语言需求推荐餐厅 */
+/** 个性化推荐：自然语言需求（高德无法解析，能力过滤后走 llm → local） */
 async function personalize({ city, query, source } = {}) {
   const found = findCity(city);
   const canonical = found ? found.name : city;
-  const { chain, explicit } = resolveChain(source);
-  const cacheKey = JSON.stringify(['personalize', canonical, String(query), chain.map((s) => s.meta.name).join('>')]);
-  return runWithSources(cacheKey, chain, (src) => src.personalize(canonical, String(query)), explicit);
+  const { chain } = resolveChain(source);
+  const capable = capabilityChain(chain, 'personalize');
+  if (!capable.length) {
+    throw new Error(`「${chain[0].meta.label}」数据源不支持个性化推荐，请选择「AI 联网搜索」或「本地数据」`);
+  }
+  const cacheKey = JSON.stringify(['personalize', canonical, String(query), capable.map((s) => s.meta.name).join('>')]);
+  return runWithSources(cacheKey, capable, (src) => src.personalize(canonical, String(query)), capable.length === 1 && chain.length === 1);
 }
 
 /** 各数据源配置状态（前端提示用） */
 function getSourceStatus() {
-  const all = [llm, localSource];
+  const all = [amap, llm, localSource];
   return all.map((s) => ({
     name: s.meta.name,
     label: s.meta.label,
