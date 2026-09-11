@@ -103,10 +103,26 @@ function check(name, cond, extra = '') {
   check('酒店按综合得分降序排列', hScores.every((v, i) => i === 0 || hScores[i - 1] >= v));
 
   // 8.6 酒店模块：价格档位 + 位置偏好筛选
+  // 注意：档位按 price 数值严格过滤（luxury: price > 800），不看档位名称标签
   const h2 = await get('/api/hotel/search?city=' + encodeURIComponent('北京') + '&tier=luxury&source=local');
   const okH2 = h2.status === 200 && h2.body.hotels?.length > 0 &&
-    h2.body.hotels.every((x) => x.tier === '豪华型' || x.price >= 1000);
-  check('价格档位筛选（北京 豪华型）', okH2, `${h2.body.count} 家豪华型`);
+    h2.body.hotels.every((x) => Number.isFinite(x.price) && x.price > 800);
+  check('价格档位筛选（北京 ¥800以上）', okH2, `${h2.body.count} 家，最低 ¥${Math.min(...(h2.body.hotels || []).map((x) => x.price))}`);
+
+  // 8.6.1 严格价格过滤回归：¥200以下 必须全部 price <= 200（含真实低价青旅数据）
+  const h2b = await get('/api/hotel/search?city=' + encodeURIComponent('北京') + '&tier=budget&source=local');
+  const okH2b = h2.status === 200 && h2b.body.hotels?.length >= 5 &&
+    h2b.body.hotels.every((x) => Number.isFinite(x.price) && x.price <= 200);
+  check('严格价格过滤（北京 ¥200以下 全部 ≤200 且有真实数据）', okH2b,
+    `${h2b.body.count} 家，¥${(h2b.body.hotels || []).map((x) => x.price).sort((a, b) => a - b).join(' / ¥')}`);
+
+  // 8.6.2 严格价格过滤回归：¥200 - ¥450 必须全部 200 < price <= 450
+  const h2c = await get('/api/hotel/search?city=' + encodeURIComponent('成都') + '&tier=comfort&source=local');
+  const okH2c = h2c.status === 200 && h2c.body.hotels?.length > 0 &&
+    h2c.body.hotels.every((x) => Number.isFinite(x.price) && x.price > 200 && x.price <= 450);
+  check('严格价格过滤（成都 ¥200-¥450 全部在区间内）', okH2c,
+    `${h2c.body.count} 家，¥${(h2c.body.hotels || []).map((x) => x.price).sort((a, b) => a - b).join(' / ¥')}`);
+
   const h3 = await get('/api/hotel/search?city=' + encodeURIComponent('成都') + '&location=station&source=local');
   const okH3 = h3.status === 200 && h3.body.hotels?.length > 0 &&
     h3.body.hotels.every((x) => (x.tags || []).includes('近火车站'));

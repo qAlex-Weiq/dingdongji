@@ -356,6 +356,21 @@ const path = require('path');
   const lowestPrice = await page.locator('#hotel-list .card .hotel-price em').first().innerText();
   console.log('按价格升序后最低价:', lowestPrice.trim());
 
+  // ---- ¥200以下 严格价格过滤回归（本次 bug 修复核心场景）----
+  await page.click('.chip:has(input[name="tier"][value="budget"])');
+  await page.click('.chip:has(input[name="location"][value="any"])');
+  await page.click('#search-btn');
+  await page.waitForSelector('#hotel-list .card:not(.skeleton)', { timeout: 10000 });
+  const priceTexts = await page.locator('#hotel-list .card .hotel-price em').allInnerTexts();
+  const budgetPrices = priceTexts.map((t) => Number(String(t).replace(/[^\d.]/g, ''))).filter((n) => Number.isFinite(n));
+  if (budgetPrices.length < 3) throw new Error(`「¥200以下」应返回 ≥3 家真实低价酒店，实际 ${budgetPrices.length} 张`);
+  if (!budgetPrices.every((p) => p <= 200)) {
+    throw new Error(`「¥200以下」存在越界价格（必须全部 ≤ ¥200）: ¥${budgetPrices.join(' / ¥')}`);
+  }
+  const budgetSummary = (await page.locator('#hotel-summary').innerText()).replace(/\s+/g, ' ');
+  if (!budgetSummary.includes('¥200以下')) throw new Error(`摘要未包含 ¥200以下 条件: ${budgetSummary}`);
+  console.log(`¥200以下卡片: ${budgetPrices.length} 张，价格 ¥${[...budgetPrices].sort((a, b) => a - b).join(' / ¥')}（全部 ≤ 200 ✓）`);
+
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-hotel.png'), fullPage: false });
 
   await browser.close();

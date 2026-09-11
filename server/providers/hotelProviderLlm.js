@@ -3,7 +3,8 @@
 /**
  * LLM Agent 酒店数据源（可选）。
  * 兼容 OpenAI Chat Completions 协议，默认对接智谱 GLM（glm-4-flash 免费模型）。
- * 通过提示词让模型结合「价格档位 + 位置偏好」输出结构化 JSON 酒店列表。
+ * 通过提示词让模型结合「价格档位 + 位置偏好」输出结构化 JSON 酒店列表，
+ * 并在服务端对返回结果做严格价格区间校验（越界即剔除，绝不放行）。
  *
  * 配置来源（优先级从高到低）：
  *   1. 设置页面保存的 .settings.json
@@ -11,7 +12,7 @@
  */
 
 const settings = require('../lib/settings');
-const { TIERS, tierRangeText, locationText, tierFromPrice } = require('../lib/hotelPrefs');
+const { TIERS, tierRangeText, tierPriceRule, locationText, tierFromPrice, priceInTier } = require('../lib/hotelPrefs');
 
 const meta = {
   name: 'llm',
@@ -53,12 +54,16 @@ async function fetchWithTimeout(url, options, timeoutMs = 90000) {
 function buildPrompt(cityName, prefs) {
   const tier = prefs.tier || 'any';
   const location = prefs.location || 'any';
+  // 价格硬性约束：档位非「不限」时，明确给出数值区间并禁止越界
+  const priceConstraint = tier === 'any'
+    ? '价格不限，但 price 必须符合所推荐酒店在国内的真实行情'
+    : `【最重要 · 硬性约束】用户要求的价格区间为 ${tierRangeText(tier)}（即 ${tierPriceRule(tier)}）。你返回的每一家酒店的 price（每晚均价，元）都必须严格落在这个区间内（例如区间为 price <= 200 时，只能推荐 ¥98-¥198 这样的价格）。绝对不要返回价格超出区间上限的酒店，也不要虚构价格；若不确定某酒店的价格是否在区间内，就不要推荐它，改推其他确定在区间内的酒店`;
   return `你是一位专业的中国旅行酒店顾问。请为「${cityName}」推荐酒店，要求：
 
 1. 数量 8-10 家，按热门程度从高到低排列；
-2. 价格档位：${tierRangeText(tier)}，推荐的酒店 price 需落在该区间；
+2. 价格档位：${priceConstraint}；
 3. 位置偏好：${locationText(location)}，优先推荐符合位置偏好的酒店，不足时可用交通便利的替代；
-4. tier 字段取值只能是：经济型 / 舒适型 / 高档型 / 豪华型；
+4. tier 字段取值只能是：经济型 / 舒适型 / 高档型 / 豪华型，且必须与 price 所在区间一致；
 5. price 为每晚参考均价（元，整数），须符合该档位在国内的真实行情，不确定时给保守估值，禁止编造极端价格（如 1 元或 99999 元）；rating 为 0-5 一位小数；popularity 为 0-100 整数；
 6. tags 包含位置标签（市中心 / 近地铁 / 近火车站 / 近机场 / 景点周边，按实际情况选取）与特色标签；
 7. address 尽量给到区级或地标级位置；desc 为 40 字以内的推荐理由；
@@ -96,8 +101,8 @@ function pick(obj, keys) {
   return undefined;
 }
 
-/** LLM 输出条目 → 标准酒店对象（档位非法时按价格反推） */
-function normalizeItem(item) {
+/** LLM 输出条目 → 标准酒店对象（档位非法时按价格反推；指定档位时不做价格裁剪，交给严格校验） */
+function normalizeItem(item, { clampPrice = true } = {}) {
   if (!item || typeof item !== 'object') return null;
   const name = String(pick(item, ['name', '名称', '酒店名']) || '').trim();
   if (!name) return null;
@@ -120,9 +125,10 @@ function normalizeItem(item) {
     rating: Number.isFinite(rating) ? Math.min(5, Math.max(0, Number(rating.toFixed(1)))) : null,
     popularity: Number.isFinite(popularity) ? Math.min(100, Math.max(0, Math.round(popularity))) : null,
     tier,
-    // 价格真实性防线：<=50 或 >50000 视为模型幻觉置 null；
-    // 其余按档位区间放宽 20% 裁剪（与 priceInTierLoose 口径一致）
-    price: normalizeTierPrice(price, tier),
+    // 价格真实性防线：<=50 或 >50000 视为模型幻觉置 null。
+    // 「不限价格」时按档位区间放宽 20% 裁剪；指定档位时不裁剪，
+    // 价格原样保留，由 searchHotels 的严格档位校验决定去留（绝不人为改价凑区间）
+    price: normalizeTierPrice(price, tier, clampPrice),
     address: String(pick(item, ['address', '地址']) || '地址待补全').trim(),
     desc: String(pick(item, ['desc', '简介', '推荐理由']) || '').trim(),
     tags,
@@ -174,16 +180,20 @@ async function searchHotels(cityName, prefs = {}) {
     throw new Error(`LLM 输出无法解析为酒店列表（原始输出前 200 字：${String(content).slice(0, 200)}）`);
   }
 
-  const hotels = arr.map(normalizeItem).filter(Boolean);
+  const tier = prefs.tier || 'any';
+  const hotels = arr.map((it) => normalizeItem(it, { clampPrice: tier === 'any' })).filter(Boolean);
   if (hotels.length === 0) {
     throw new Error(`LLM 输出的酒店数据无效（共 ${arr.length} 条）`);
   }
 
-  // 档位二次校验：价格明显偏离档位区间的条目剔除（宽松策略，仅剔除价格已知且不符的）
-  const tier = prefs.tier || 'any';
+  // 严格档位校验（服务端后置防线）：价格越界或未知的条目一律剔除，
+  // 绝不宽松放行、绝不人为改价 —— 宁缺毋滥，保证返回结果 100% 落在所选区间
   if (tier !== 'any') {
-    const filtered = hotels.filter((h) => h.price === null || priceInTierLoose(h.price, tier));
-    return filtered.length >= 3 ? filtered : hotels;
+    const filtered = hotels.filter((h) => h.price !== null && priceInTier(h.price, tier));
+    if (filtered.length === 0) {
+      throw new Error(`LLM 生成的酒店价格均不符合「${tierRangeText(tier)}」，请重试或调整价格档位`);
+    }
+    return filtered;
   }
   return hotels;
 }
@@ -191,24 +201,16 @@ async function searchHotels(cityName, prefs = {}) {
 /** 中文档位标签 -> 英文 key（TIERS 以英文 key 存档位区间） */
 const TIER_KEY_BY_LABEL = Object.fromEntries(Object.entries(TIERS).map(([k, t]) => [t.label, k]));
 
-/** 价格真实性防线：极端值置 null，其余按档位区间（放宽 20%）裁剪 */
-function normalizeTierPrice(price, tierLabel) {
+/** 价格真实性防线：极端值置 null；开启裁剪时按档位区间（放宽 20%）修正 */
+function normalizeTierPrice(price, tierLabel, clamp = true) {
   if (!Number.isFinite(price) || price <= 50 || price > 50000) return null;
+  if (!clamp) return Math.round(price);
   const t = TIERS[TIER_KEY_BY_LABEL[tierLabel]] || TIERS.any;
   let min = 0;
   let max = Infinity;
   if (t.min > 0) min = Math.round(t.min * 0.8);
   if (Number.isFinite(t.max)) max = Math.round(t.max * 1.2);
   return Math.round(Math.min(max, Math.max(min, price)));
-}
-
-/** 宽松档位匹配：允许 20% 越界（LLM 价格为估算值，避免过度剔除） */
-function priceInTierLoose(price, tier) {
-  const t = TIERS[tier];
-  const margin = Math.max(t.min, t.max === Infinity ? 1e9 : t.max) * 0.2;
-  const min = t.min === 0 ? 0 : t.min - margin;
-  const max = t.max === Infinity ? Infinity : t.max + margin;
-  return price >= min && price < max;
 }
 
 module.exports = { meta, isConfigured, searchHotels, _internal: { normalizeTierPrice } };

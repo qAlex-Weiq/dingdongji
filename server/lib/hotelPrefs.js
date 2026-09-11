@@ -6,13 +6,21 @@
  * 各数据源（高德 / LLM / 内置）统一按这里的区间与标签工作。
  */
 
-/** 价格档位（每晚参考均价区间，元，左闭右开） */
+/**
+ * 价格档位（每晚参考均价区间，元）。
+ * 区间为「左开右闭」，与前端药丸文案一一对应：
+ *   budget  ¥200以下    price <= 200
+ *   comfort ¥200 - ¥450 200 < price <= 450
+ *   upscale ¥450 - ¥800 450 < price <= 800
+ *   luxury  ¥800以上    price > 800
+ * 档位筛选只看 price 数值，绝不按「经济型」等档位名称匹配。
+ */
 const TIERS = {
   any: { label: '不限', min: 0, max: Infinity },
-  budget: { label: '经济型', min: 0, max: 300 },
-  comfort: { label: '舒适型', min: 300, max: 600 },
-  upscale: { label: '高档型', min: 600, max: 1000 },
-  luxury: { label: '豪华型', min: 1000, max: Infinity },
+  budget: { label: '经济型', min: 0, max: 200 },
+  comfort: { label: '舒适型', min: 200, max: 450 },
+  upscale: { label: '高档型', min: 450, max: 800 },
+  luxury: { label: '豪华型', min: 800, max: Infinity },
 };
 
 /** 位置偏好 → 内置数据的匹配标签（近地铁并入市中心维度） */
@@ -45,12 +53,19 @@ function normalizeLocation(v) {
   return isValidLocation(v) ? v : 'any';
 }
 
-/** 价格是否落在指定档位区间（价格未知视为不匹配） */
+/**
+ * 价格是否严格落在指定档位区间（左开右闭，价格未知视为不匹配）。
+ *   budget:  price <= 200；comfort: 200 < price <= 450；
+ *   upscale: 450 < price <= 800；luxury: price > 800
+ */
 function priceInTier(price, tier) {
   if (tier === 'any') return true;
   if (!Number.isFinite(price)) return false;
   const t = TIERS[tier];
-  return price >= t.min && price < t.max;
+  if (!t) return false;
+  const aboveMin = t.min === 0 ? price >= 0 : price > t.min;
+  const belowMax = Number.isFinite(t.max) ? price <= t.max : true;
+  return aboveMin && belowMax;
 }
 
 /** 由每晚价格反推档位标签（用于高德/LLM 数据补全档位） */
@@ -58,8 +73,7 @@ function tierFromPrice(price) {
   if (!Number.isFinite(price)) return null;
   for (const key of TIER_KEYS) {
     if (key === 'any') continue;
-    const t = TIERS[key];
-    if (price >= t.min && price < t.max) return t.label;
+    if (priceInTier(price, key)) return TIERS[key].label;
   }
   return null;
 }
@@ -68,9 +82,20 @@ function tierFromPrice(price) {
 function tierRangeText(tier) {
   if (tier === 'any') return '不限价格';
   const t = TIERS[tier];
-  if (!Number.isFinite(t.max)) return `${t.label}（${t.min} 元以上/晚）`;
-  if (t.min === 0) return `${t.label}（${t.max} 元以内/晚）`;
-  return `${t.label}（${t.min}-${t.max} 元/晚）`;
+  if (!t) return '价格区间未知';
+  if (t.min === 0) return `${t.label}（${t.max} 元以内/晚，含 ${t.max}）`;
+  if (!Number.isFinite(t.max)) return `${t.label}（${t.min} 元以上/晚，不含 ${t.min}）`;
+  return `${t.label}（${t.min}-${t.max} 元/晚，不含 ${t.min}、含 ${t.max}）`;
+}
+
+/** 档位区间的数值约束表达式（用于 LLM 提示词的硬性价格约束） */
+function tierPriceRule(tier) {
+  if (tier === 'any') return '价格不限';
+  const t = TIERS[tier];
+  if (!t) return '';
+  if (t.min === 0) return `price <= ${t.max}`;
+  if (!Number.isFinite(t.max)) return `price > ${t.min}`;
+  return `${t.min} < price <= ${t.max}`;
 }
 
 /** 位置偏好的人类可读描述（用于 LLM 提示词） */
@@ -89,5 +114,6 @@ module.exports = {
   priceInTier,
   tierFromPrice,
   tierRangeText,
+  tierPriceRule,
   locationText,
 };

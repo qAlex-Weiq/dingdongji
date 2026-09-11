@@ -57,6 +57,28 @@
     upscale: '¥450 - ¥800',
     luxury: '¥800以上',
   };
+  /**
+   * 档位 key → 严格数值区间（与后端 lib/hotelPrefs 的 TIERS 一致）：
+   * budget: price <= 200；comfort: 200 < price <= 450；
+   * upscale: 450 < price <= 800；luxury: price > 800
+   */
+  const PRICE_RANGES = {
+    budget: { max: 200 },
+    comfort: { min: 200, max: 450 },
+    upscale: { min: 450, max: 800 },
+    luxury: { min: 800 },
+  };
+
+  /** 严格价格过滤（前端防线）：指定档位时剔除任何价格越界或未知的酒店 */
+  function inPriceRange(price, tier) {
+    if (tier === 'any' || !PRICE_RANGES[tier]) return true;
+    if (!Number.isFinite(price)) return false;
+    const r = PRICE_RANGES[tier];
+    if (r.min !== undefined && !(price > r.min)) return false;
+    if (r.max !== undefined && !(price <= r.max)) return false;
+    return true;
+  }
+
   const LOCATION_LABEL = {
     any: '位置不限',
     downtown: '市中心',
@@ -180,7 +202,8 @@
 
   function renderList() {
     if (!state.data || state.loading) return;
-    const list = sorted(state.data.hotels);
+    // 按本次查询的档位做严格价格过滤（前端防线，与后端同一套数值区间）
+    const list = sorted(state.data.hotels.filter((h) => inPriceRange(h.price, state.data.tier)));
     els.list.innerHTML =
       list.length === 0 ? emptyHtml() : list.map(hotelCard).join('');
   }

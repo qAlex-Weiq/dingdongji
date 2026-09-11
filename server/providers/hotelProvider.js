@@ -27,7 +27,7 @@ const amap = require('./hotelProviderAmap');
 const llm = require('./hotelProviderLlm');
 const { getHotelsByCity } = require('../data/hotels');
 const { findCity } = require('../data/cities');
-const { TIERS, LOCATIONS, normalizeTier, normalizeLocation, priceInTier } = require('../lib/hotelPrefs');
+const { LOCATIONS, normalizeTier, normalizeLocation, priceInTier, tierRangeText } = require('../lib/hotelPrefs');
 
 /** 数据源注册表（顺序即降级优先级） */
 const SOURCES = [amap, llm];
@@ -47,12 +47,12 @@ const localSource = {
     const tier = normalizeTier(prefs.tier);
     const location = normalizeLocation(prefs.location);
 
-    // 价格档位：档位标签或价格区间匹配（每城四种档位均有覆盖，严格过滤）
+    // 价格档位：严格按 price 数值区间过滤（不看「经济型」等档位名称，
+    // 避免档位标签与价格区间不一致导致越界酒店混入）
     if (tier !== 'any') {
-      const label = TIERS[tier].label;
-      list = list.filter((h) => h.tier === label || priceInTier(h.price, tier));
+      list = list.filter((h) => priceInTier(h.price, tier));
       if (list.length === 0) {
-        throw new Error(`内置数据暂未收录「${city ? city.name : cityName}」的${label}酒店`);
+        throw new Error(`内置数据暂未收录「${city ? city.name : cityName}」符合「${tierRangeText(tier)}」的酒店`);
       }
     }
 
@@ -220,7 +220,17 @@ async function searchHotels(cityName, options = {}) {
   /** 单数据源执行（显式指定与降级链共用） */
   const run = async (src) => {
     const raw = await src.searchHotels(canonicalName, { tier, location });
-    const hotels = rankHotels(raw);
+
+    // 严格价格过滤（统一防线）：无论哪个数据源，档位非「不限」时
+    // 一律剔除价格越界或未知的酒店，确保返回结果 100% 落在所选区间
+    const inRange = tier === 'any'
+      ? raw
+      : (raw || []).filter((h) => priceInTier(h.price, tier));
+    if (tier !== 'any' && inRange.length === 0) {
+      throw new Error(`数据源「${src.meta.label}」没有符合「${tierRangeText(tier)}」的酒店，请调整价格档位`);
+    }
+
+    const hotels = rankHotels(inRange);
     return {
       city: canonicalName,
       tier,

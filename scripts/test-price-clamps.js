@@ -48,12 +48,22 @@ test('discountLabelOf 全价/近全价（794/795）-> undefined 不展示', () =
 
 console.log('酒店价格 clamp（normalizeTierPrice）:');
 test('null 守卫：非数字/≤50/>50000 -> null', () => { if (hotel.normalizeTierPrice(NaN, '豪华型') !== null || hotel.normalizeTierPrice(50, '豪华型') !== null || hotel.normalizeTierPrice(60000, '豪华型') !== null) throw new Error('bad'); });
-test('豪华型下限 800：500 -> 800', () => { if (hotel.normalizeTierPrice(500, '豪华型') !== 800) throw new Error(String(hotel.normalizeTierPrice(500, '豪华型'))); });
-test('经济型上限 360：1000 -> 360', () => { if (hotel.normalizeTierPrice(1000, '经济型') !== 360) throw new Error(String(hotel.normalizeTierPrice(1000, '经济型'))); });
-test('舒适型区间 [240,720]：300 原样保留', () => { if (hotel.normalizeTierPrice(300, '舒适型') !== 300) throw new Error('bad'); });
+test('豪华型下限 640：500 -> 640', () => { if (hotel.normalizeTierPrice(500, '豪华型') !== 640) throw new Error(String(hotel.normalizeTierPrice(500, '豪华型'))); });
+test('经济型上限 240：1000 -> 240', () => { if (hotel.normalizeTierPrice(1000, '经济型') !== 240) throw new Error(String(hotel.normalizeTierPrice(1000, '经济型'))); });
+test('舒适型区间 [160,540]：300 原样保留', () => { if (hotel.normalizeTierPrice(300, '舒适型') !== 300) throw new Error('bad'); });
+test('指定档位不裁剪（clamp=false）：450 标经济型原样保留', () => { if (hotel.normalizeTierPrice(450, '经济型', false) !== 450) throw new Error(String(hotel.normalizeTierPrice(450, '经济型', false))); });
 test('不限档：合理价原样保留', () => { if (hotel.normalizeTierPrice(450, '不限') !== 450) throw new Error('bad'); });
 test('未知档位标签回退不限：8888 保留', () => { if (hotel.normalizeTierPrice(8888, '不存在的档') !== 8888) throw new Error('bad'); });
-test('四舍五入：349.6 -> 350', () => { if (hotel.normalizeTierPrice(349.6, '经济型') !== 350) throw new Error('bad'); });
+test('四舍五入：178.6 -> 179', () => { if (hotel.normalizeTierPrice(178.6, '经济型') !== 179) throw new Error('bad'); });
+
+console.log('酒店档位区间（priceInTier，严格左开右闭）:');
+const prefs = require(path.join(__dirname, '../server/lib/hotelPrefs'));
+test('budget：¥200 含、¥201 不含', () => { if (!prefs.priceInTier(200, 'budget') || prefs.priceInTier(201, 'budget')) throw new Error('bad'); });
+test('comfort：¥200 不含、¥450 含', () => { if (prefs.priceInTier(200, 'comfort') || !prefs.priceInTier(450, 'comfort')) throw new Error('bad'); });
+test('upscale：¥450 不含、¥800 含', () => { if (prefs.priceInTier(450, 'upscale') || !prefs.priceInTier(800, 'upscale')) throw new Error('bad'); });
+test('luxury：¥800 不含、¥801 含', () => { if (prefs.priceInTier(800, 'luxury') || !prefs.priceInTier(801, 'luxury')) throw new Error('bad'); });
+test('价格未知/为 null 不匹配任何档位', () => { if (prefs.priceInTier(null, 'budget') || prefs.priceInTier(NaN, 'comfort') || prefs.priceInTier(undefined, 'luxury')) throw new Error('bad'); });
+test('tierFromPrice 与区间一致：128 -> 经济型、260 -> 舒适型、480 -> 高档型、1680 -> 豪华型', () => { if (prefs.tierFromPrice(128) !== '经济型' || prefs.tierFromPrice(260) !== '舒适型' || prefs.tierFromPrice(480) !== '高档型' || prefs.tierFromPrice(1680) !== '豪华型') throw new Error('bad'); });
 
 console.log('餐厅价格 clamp（normalizeRestaurant）:');
 const r1 = food.normalizeRestaurant({ name: '测试馆', avgPrice: 4 });
