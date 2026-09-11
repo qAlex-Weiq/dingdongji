@@ -20,6 +20,7 @@
 const { haversineKm, minutesToHHMM } = require('./geo');
 const { districtOf } = require('./district');
 const { RESTAURANTS } = require('../data/food');
+const { getSightsByCity } = require('../data/sights');
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -250,6 +251,74 @@ function resolveDishes(dishItems, city, preferredDistricts, takenNames) {
 }
 
 // ---------------------------------------------------------------------------
+// 1.6) 行程补全建议（稀疏行程自动填充）
+// ---------------------------------------------------------------------------
+
+/** 每天期望的景点数 —— 低于 days * 此值即视为「行程偏空」 */
+const SIGHTS_PER_DAY = 2;
+
+/**
+ * 为稀疏行程补充推荐景点。
+ *
+ * 触发条件：用户选的景点数 < days * SIGHTS_PER_DAY。
+ * 用户已选的景点保持原样（并由 clusterSights 的 mustGo 逻辑锚定），
+ * 补充项标记 suggested: true，前端渲染为「💡 AI 建议添加」徽标，
+ * 用户可逐条采纳或移除。
+ *
+ * 选择规则（确定性）：
+ *   1. 排除已在行程篮中的景点
+ *   2. 优先与已选景点同行政区（减少奔波）
+ *   3. 热度降序 → 名称升序
+ *
+ * @param {Array} sightItems 已分桶的景点条目
+ * @param {string} city 目的地城市
+ * @param {number} days 天数
+ * @returns {{suggestions: Array, note: string|null}}
+ */
+function suggestSights(sightItems, city, days) {
+  const target = days * SIGHTS_PER_DAY;
+  const have = sightItems.length;
+  if (have >= target) return { suggestions: [], note: null };
+
+  const chosenNames = new Set(sightItems.map((s) => s.payload && s.payload.name).filter(Boolean));
+  const chosenDistricts = new Set(sightItems.map((s) => s.district));
+
+  const pool = getSightsByCity(city)
+    .filter((s) => !chosenNames.has(s.name))
+    .map((s) => ({
+      s,
+      district: districtOf(s.address, city),
+    }));
+
+  pool.sort((a, b) => {
+    const sameA = chosenDistricts.has(a.district);
+    const sameB = chosenDistricts.has(b.district);
+    if (sameA !== sameB) return sameA ? -1 : 1;
+    const pa = Number(a.s.popularity) || 0;
+    const pb = Number(b.s.popularity) || 0;
+    if (pa !== pb) return pb - pa;
+    return String(a.s.name).localeCompare(String(b.s.name), 'zh');
+  });
+
+  const need = target - have;
+  const suggestions = pool.slice(0, need).map((x) => ({
+    type: 'sight',
+    key: `sight|${city}|${x.s.name}`,
+    payload: x.s,
+    mustGo: false,
+    suggested: true,          // 前端据此渲染「💡 AI 建议添加」
+    district: x.district,
+    coords: coordsOf(x.s),
+  }));
+
+  const note = suggestions.length
+    ? `你选了 ${have} 个景点，${days} 天行程略显宽松，已补充 ${suggestions.length} 个高分推荐（标记为 AI 建议，可一键移除）`
+    : null;
+
+  return { suggestions, note };
+}
+
+// ---------------------------------------------------------------------------
 // 2) 行政区聚类 + 3) 时段编排
 // ---------------------------------------------------------------------------
 
@@ -435,17 +504,25 @@ function addDays(dateStr, n) {
  * @param {Array}  input.items 行程篮条目
  * @returns {{itinerary: Array, warnings: Array, stats: object}}
  */
-function buildItinerary({ city, days, startDate, items }) {
+function buildItinerary({ city, days, startDate, items, autoFill = true }) {
   const warnings = [];
   const buckets = bucketize(items, city);
   const { arrival, departure } = splitTickets(buckets.ticket);
 
-  const dayBuckets = clusterSights(buckets.sight, days);
+  // —— 行程补全建议：景点不足 days*2 时补充高分推荐 ——
+  // 用户已选的保持不动，补充项带 suggested 标记，前端可逐条采纳/移除。
+  const { suggestions, note } = autoFill
+    ? suggestSights(buckets.sight, city, days)
+    : { suggestions: [], note: null };
+  if (note) warnings.push(note);
+
+  const allSights = [...buckets.sight, ...suggestions];
+  const dayBuckets = clusterSights(allSights, days);
   const hotel = buckets.hotel[0] || null;
 
   // —— 特色菜 → 餐厅：把「想吃北京烤鸭」解析成「去全聚德」——
   // 优先落在行程涉及的行政区内，避免为一道菜跨城奔波。
-  const sightDistricts = new Set(buckets.sight.map((s) => s.district));
+  const sightDistricts = new Set(allSights.map((s) => s.district));
   const takenNames = new Set(buckets.food.map((f) => f.payload && f.payload.name).filter(Boolean));
   const { resolved: dishFoods, warnings: dishWarnings } = resolveDishes(
     buckets.dish,
@@ -571,11 +648,13 @@ function buildItinerary({ city, days, startDate, items }) {
       }
 
       slots.push({
-        slot: clock < LUNCH_MIN ? '上午' : (clock < 17 * 60 ? '下午' : '傍晚'),
+        slot: clock < 12 * 60 ? '上午' : (clock < 17 * 60 ? '下午' : '傍晚'),
         time: minutesToHHMM(clock),
         type: 'sight',
         item: s.payload,
         reason: buildSightReason(s, h),
+        // AI 建议项：前端渲染徽标 + 采纳/移除按钮
+        ...(s.suggested ? { suggested: true } : {}),
       });
       clock += durMin + TRANSIT_BUFFER_MIN;
     }
@@ -653,6 +732,8 @@ function buildItinerary({ city, days, startDate, items }) {
       hotels: buckets.hotel.length,
       sights: buckets.sight.length,
       foods: buckets.food.length,
+      dishes: buckets.dish.length,
+      suggested: suggestions.length,
       districts: [...new Set(buckets.sight.map((s) => s.district))],
     },
   };
@@ -699,7 +780,8 @@ function mealSlot(slot, clock, pick) {
 function buildSightReason(s, hours) {
   const p = s.payload || {};
   const bits = [];
-  if (s.mustGo) bits.push('必去项，已优先安排');
+  if (s.suggested) bits.push('AI 建议：行程偏空，补充的高分推荐');
+  else if (s.mustGo) bits.push('必去项，已优先安排');
   bits.push(`${s.district}片区`);
   bits.push(`建议游览 ${hours} 小时`);
   if (p.openTime && p.openTime !== '以现场公示为准') bits.push(`开放 ${p.openTime}`);
@@ -715,8 +797,10 @@ module.exports = {
   splitTickets,
   resolveDishes,
   dishMatchScore,
+  suggestSights,
   DAILY_BUDGET_H,
   BREAKFAST_MIN,
   LUNCH_MIN,
   DINNER_MIN,
+  SIGHTS_PER_DAY,
 };
