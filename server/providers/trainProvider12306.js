@@ -10,6 +10,9 @@
  *
  * 已实测的关键结论（2026-09）：
  *   - 查询时传任一站码即按"城市"扩展返回同城所有车站的车次（北京北 VAP → 返回北京南/北京/丰台共 55 班）
+ *   - 同一车次按「可售区间」返回多行，每行票价/余票独立，须全部保留（与 12306 官网口径一致）：
+ *     到达城市停多站（G811 → 杭州东 15:39 / 杭州南 15:53）或出发城市停多站（G5 → 北京 07:40 / 北京南 07:59）。
+ *     行唯一键 = train_no|出发站电报码|到达站电报码；两个接口返回行序均不稳定，输出须确定性排序
  *   - 票价格式为 5 位字符串，末位是十分位："07950" = 795.0 元
  *   - 余票为管道分隔字段：[23]软卧 [26]无座 [28]硬卧 [29]硬座 [30]二等 [31]一等 [32]商务 [33]动卧
  *   - 需先 GET /otn/leftTicket/init 拿 JSESSIONID，否则查询接口拒绝
@@ -204,6 +207,86 @@ function availToStatus(raw) {
 // ---------------------------------------------------------------- 查询
 
 /**
+ * 票价行数组 + 余票表 -> 前端车次数组（纯函数，离线可测，见 scripts/test-train-multistation.js）。
+ *
+ * 同一车次在城市级查询下会返回多行，每行都是独立可售区间，全部保留（与 12306 官网口径一致），
+ * 不能用「车次号+出发时间」去重——到达城市停多站时各段出发时间相同，第二段会被吞掉：
+ *   - 到达城市停多站：G811 北京南→杭州东(15:39) 与 北京南→杭州南(15:53)，出发时间相同、到达站不同
+ *   - 出发城市停多站：G5 北京(07:40)→上海 与 北京南(07:59)→上海，出发时间不同
+ * 去重粒度必须是（train_no + 出发站电报码 + 到达站电报码），真实重复行仍会被合并。
+ * 余票行按同一三元组精确匹配本区间；键不含到达站时同城两段会互相覆盖，
+ * 剩下的行拿到的是另一段的实际价/余票——这是「目的地/价格显示错乱」的根因。
+ */
+function buildTrains(priceRows, availMap) {
+  const trains = [];
+  const seen = new Set();
+  for (const row of priceRows) {
+    const dto = row && row.queryLeftNewDTO;
+    if (!dto || !dto.station_train_code) continue;
+    const trainNo = String(dto.station_train_code).trim();
+    if (!/^[GDCZTKY]\d+/.test(trainNo)) continue; // 过滤"列车运行图调整"等占位行
+    const dedupeKey = `${dto.train_no}|${dto.from_station_telecode}|${dto.to_station_telecode}`;
+    if (seen.has(dedupeKey)) continue;
+
+    const seats = [];
+    const avail = availMap.get(dedupeKey);
+    // 明文 yp_info 的实际执行价（含 12306 折扣），余票行可用时优先于公布价
+    const ypPrices = avail ? parseYpInfo(findYpField(avail)) : {};
+    for (const [field, className] of PRICE_FIELDS) {
+      const published = parsePrice(dto[field]);
+      if (published == null) continue;
+      const raw = avail ? avail[AVAIL_COLS[className]] : '';
+      const actual = ypPrices[YP_SEAT_CODES[className]];
+      const price = actual > 0 ? actual : published;
+      seats.push({
+        class: className,
+        price,
+        discount: discountLabelOf(price, published),
+        status: availToStatus(raw) || '—',
+      });
+    }
+    if (seats.length === 0) continue; // 无任何可售席别的行（如停运/调图）
+
+    const durationMin = parseLishi(dto.lishi);
+    const dayDiff = Number(dto.day_difference) || 0;
+    seen.add(dedupeKey);
+    trains.push({
+      type: 'train',
+      trainNo,
+      trainType: trainTypeOf(trainNo),
+      overnight: dayDiff >= 1,
+      depTime: String(dto.start_time || '').trim(),
+      arrTime: String(dto.arrive_time || '').trim(),
+      arrDayOffset: dayDiff,
+      depStation: String(dto.from_station_name || '').trim(),
+      arrStation: String(dto.to_station_name || '').trim(),
+      durationMin,
+      stops: null, // 12306 查询接口不含途经站数，前端对 null 不展示
+      seats,
+    });
+  }
+  // 12306 两次请求可能返回不同行序（同车次多段的先后互换），必须确定性排序，
+  // 否则前端每次刷新结果漂移、缓存一致性校验失败
+  trains.sort((a, b) =>
+    a.depTime.localeCompare(b.depTime) ||
+    a.arrTime.localeCompare(b.arrTime) ||
+    a.trainNo.localeCompare(b.trainNo) ||
+    a.arrStation.localeCompare(b.arrStation));
+  return trains;
+}
+
+/** 余票原始行（管道分隔）-> Map<train_no|出发站|到达站, 字段数组>；键含到达站以区分同车次多段 */
+function buildAvailMap(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    const f = String(row).split('|');
+    // [2]train_no [6]实际出发站 [7]实际到达站（[4][5]是查询参数站码，多段行不反映真实区间）
+    if (f.length > 33) map.set(`${f[2]}|${f[6]}|${f[7]}`, f);
+  }
+  return map;
+}
+
+/**
  * 查询两城市间某日期的全部火车班次（真实票价 + 真实余票）。
  * @param {{ from: object, to: object, date: string }} opts from/to 为 cities.js 城市对象
  * @returns {Promise<Array>} 与本地 trainProvider 相同结构的数组
@@ -244,58 +327,12 @@ async function search({ from, to, date }) {
     // 余票（尽力而为：失败不影响票价返回，状态显示为「—」）
     const availMap = await loadAvailMap(qs);
 
-    const trains = [];
-    const seen = new Set();
-    for (const row of priceData.data) {
-      const dto = row && row.queryLeftNewDTO;
-      if (!dto || !dto.station_train_code) continue;
-      const trainNo = String(dto.station_train_code).trim();
-      if (!/^[GDCZTKY]\d+/.test(trainNo)) continue; // 过滤"列车运行图调整"等占位行
-      const dedupeKey = `${trainNo}|${dto.start_time}`;
-      if (seen.has(dedupeKey)) continue;
-
-      const seats = [];
-      const avail = availMap.get(`${dto.train_no}|${dto.from_station_telecode}`);
-      // 明文 yp_info 的实际执行价（含 12306 折扣），余票行可用时优先于公布价
-      const ypPrices = avail ? parseYpInfo(findYpField(avail)) : {};
-      for (const [field, className] of PRICE_FIELDS) {
-        const published = parsePrice(dto[field]);
-        if (published == null) continue;
-        const raw = avail ? avail[AVAIL_COLS[className]] : '';
-        const actual = ypPrices[YP_SEAT_CODES[className]];
-        const price = actual > 0 ? actual : published;
-        seats.push({
-          class: className,
-          price,
-          discount: discountLabelOf(price, published),
-          status: availToStatus(raw) || '—',
-        });
-      }
-      if (seats.length === 0) continue; // 无任何可售席别的行（如停运/调图）
-
-      const durationMin = parseLishi(dto.lishi);
-      const dayDiff = Number(dto.day_difference) || 0;
-      seen.add(dedupeKey);
-      trains.push({
-        type: 'train',
-        trainNo,
-        trainType: trainTypeOf(trainNo),
-        overnight: dayDiff >= 1,
-        depTime: String(dto.start_time || '').trim(),
-        arrTime: String(dto.arrive_time || '').trim(),
-        arrDayOffset: dayDiff,
-        depStation: String(dto.from_station_name || '').trim(),
-        arrStation: String(dto.to_station_name || '').trim(),
-        durationMin,
-        stops: null, // 12306 查询接口不含途经站数，前端对 null 不展示
-        seats,
-      });
-    }
+    // 票价接口为权威数据源；同车次同城多段（不同到发站）各自成行，全部保留
+    const trains = buildTrains(priceData.data, availMap);
 
     if (trains.length === 0) {
       throw new Error(`12306 未返回 ${from.name} → ${to.name} 的可售车次`);
     }
-    trains.sort((a, b) => a.depTime.localeCompare(b.depTime));
     return trains;
   })();
 
@@ -314,7 +351,7 @@ async function search({ from, to, date }) {
   }
 }
 
-/** 余票表：train_no|from_telecode -> 管道字段数组 */
+/** 余票表：train_no|from_station|to_station -> 管道字段数组（封装 buildAvailMap） */
 async function loadAvailMap(qs) {
   try {
     const first = await getJson(`/otn/leftTicket/${leftTicketPath}?${qs}`);
@@ -323,12 +360,7 @@ async function loadAvailMap(qs) {
       : first;
     if (first && first.c_url) leftTicketPath = String(first.c_url).replace(/^leftTicket\//, '');
     const rows = data && data.data && Array.isArray(data.data.result) ? data.data.result : [];
-    const map = new Map();
-    for (const row of rows) {
-      const f = String(row).split('|');
-      if (f.length > 33) map.set(`${f[2]}|${f[6]}`, f);
-    }
-    return map;
+    return buildAvailMap(rows);
   } catch (err) {
     return new Map(); // 余票拿不到时票价照常返回
   }
@@ -353,4 +385,4 @@ function clearCache() {
   cookie = null;
 }
 
-module.exports = { search, clearCache, _internal: { parsePrice, availToStatus, parseLishi, trainTypeOf, findYpField, parseYpInfo, discountLabelOf } };
+module.exports = { search, clearCache, _internal: { parsePrice, availToStatus, parseLishi, trainTypeOf, findYpField, parseYpInfo, discountLabelOf, buildTrains, buildAvailMap } };
