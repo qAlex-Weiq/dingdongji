@@ -4,6 +4,7 @@ const express = require('express');
 const { findCity } = require('../data/cities');
 const flightProvider = require('../providers/flightProvider');
 const trainProvider = require('../providers/trainProvider');
+const trainProvider12306 = require('../providers/trainProvider12306');
 
 const router = express.Router();
 
@@ -35,12 +36,23 @@ router.get('/search', async (req, res, next) => {
     }
 
     const query = { from: fromCity.name, to: toCity.name, date: String(date) };
-    const [flights, trains] = await Promise.all([
-      flightProvider.search({ from: fromCity, to: toCity, date: query.date }),
-      trainProvider.search({ from: fromCity, to: toCity, date: query.date }),
-    ]);
 
-    res.json({ query, flights, trains });
+    // 火车：优先 12306 实时数据（真实票价 + 真实余票），失败降级本地模拟并透出原因
+    let trains;
+    let trainsSource = '12306';
+    let trainsNote = null;
+    try {
+      trains = await trainProvider12306.search({ from: fromCity, to: toCity, date: query.date });
+    } catch (err) {
+      trainsSource = 'local';
+      trainsNote = `12306 实时查询不可用（${err.message}），以下为模拟数据`;
+      console.warn(`[ticket] 降级到本地模拟：${err.message}`);
+      trains = await trainProvider.search({ from: fromCity, to: toCity, date: query.date });
+    }
+
+    const flights = await flightProvider.search({ from: fromCity, to: toCity, date: query.date });
+
+    res.json({ query, flights, trains, trainsSource, trainsNote });
   } catch (err) {
     next(err);
   }

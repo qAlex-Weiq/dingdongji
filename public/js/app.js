@@ -180,8 +180,9 @@
     if (!state.data || state.loading) return;
     const tab = state.activeTab;
     const list = sorted(state.data[tab]);
+    const note = tab === 'trains' ? trainsSourceNote() : '';
     els.panels[tab].innerHTML =
-      list.length === 0 ? emptyHtml() : list.map(tab === 'flights' ? flightCard : trainCard).join('');
+      note + (list.length === 0 ? emptyHtml() : list.map(tab === 'flights' ? flightCard : trainCard).join(''));
   }
 
   function sorted(list) {
@@ -249,7 +250,7 @@
             <span class="carrier">${esc(t.trainNo)}</span>
             <span class="tag-soft">${esc(t.trainType)}</span>
             ${t.overnight ? '<span class="tag-soft">过夜</span>' : ''}
-            <span class="stops">途经 ${t.stops} 站</span>
+            ${t.stops != null ? `<span class="stops">途经 ${t.stops} 站</span>` : ''}
           </div>
           <div class="timeline">
             <div class="node">
@@ -257,7 +258,7 @@
               <div class="node-place">${esc(t.depStation)}</div>
             </div>
             <div class="mid">
-              <span>${fmtDuration(t.durationMin)}</span>
+              <span>${t.durationMin != null ? fmtDuration(t.durationMin) : '时刻以车站为准'}</span>
               <span class="mid-line">${TRAIN_SVG}</span>
             </div>
             <div class="node node-right">
@@ -312,6 +313,15 @@
 
   function dayBadge(offset) {
     return offset > 0 ? `<sup class="day-badge">+${offset}天</sup>` : '';
+  }
+
+  function trainsSourceNote() {
+    const d = state.data;
+    if (!d || !d.trainsSource) return '';
+    if (d.trainsSource === '12306') {
+      return `<div class="source-note ok"><span class="dot"></span>火车班次 · 票价 · 余票来自 12306 实时数据</div>`;
+    }
+    return `<div class="source-note warn"><span class="dot"></span>${esc(d.trainsNote || '火车票为模拟数据')}</div>`;
   }
 
   function statusKey(status) {
