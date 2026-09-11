@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>酒店搜索 · 叮咚机旅行规划</title>
+  <title>酒店搜索 · 订懂机旅行规划</title>
   <meta name="description" content="输入城市，选择价格档位与位置偏好，一键获取该城市酒店，按热度与评分综合排序">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E订%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="page-hotel">
   <header class="topbar">
     <div class="container topbar-inner">
       <a class="brand" href="/">
-        <span class="brand-mark" aria-hidden="true">叮</span>
-        <span class="brand-name">叮咚机<i>旅行规划</i></span>
+        <span class="brand-mark" aria-hidden="true">订</span>
+        <span class="brand-name">订懂机<i>旅行规划</i></span>
       </a>
       <nav class="module-nav" aria-label="功能模块">
         <a href="/ticket.html">车票</a>
@@ -26,9 +26,11 @@
   </header>
 
   <main class="container">
-    <section class="hero">
-      <h1>选好偏好，一键找到合适的酒店</h1>
+    <section class="hero hero-scene hero-hotel">
+      <span class="hero-kicker">STAY / 住得好，旅程才完整</span>
+      <h1>为今晚，挑一处安心落脚</h1>
       <p>选价格档位、挑位置偏好，联网搜索城市酒店，按热度与评分综合排序</p>
+      <span class="hero-stamp" aria-hidden="true">慢下来<br><b>好好住</b></span>
     </section>
 
     <section class="search-card search-card-hotel" aria-label="酒店查询">
@@ -45,7 +47,7 @@
             <option value="llm">AI 联网搜索（较慢）</option>
           </select>
         </div>
-        <button type="submit" class="search-btn" id="search-btn">搜 索</button>
+        <button type="submit" class="search-btn" id="search-btn">搜索</button>
 
         <div class="chip-row" role="radiogroup" aria-label="价格档位">
           <span class="chip-row-label">价格档位</span>
@@ -71,6 +73,7 @@
       </p>
     </section>
 
+
     <section id="result-section" class="result-section" hidden>
       <div class="result-toolbar">
         <div class="sight-summary" id="hotel-summary"></div>
@@ -87,10 +90,16 @@
       </div>
       <div id="hotel-list" class="list sight-list"></div>
     </section>
+
+    <div class="page-ambient ambient-hotel" aria-hidden="true">
+      <span class="ambient-building building-main"></span><span class="ambient-building building-side"></span>
+      <span class="ambient-window window-a"></span><span class="ambient-window window-b"></span><span class="ambient-window window-c"></span>
+      <span class="ambient-caption">给旅途留一盏灯</span>
+    </div>
   </main>
 
   <footer class="footer">
-    <div class="container">酒店价格与评分仅供参考，以预订平台实时信息为准 · 叮咚机旅行规划</div>
+    <div class="container">酒店价格与评分仅供参考，以预订平台实时信息为准 · 订懂机旅行规划</div>
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

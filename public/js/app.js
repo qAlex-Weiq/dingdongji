@@ -1,7 +1,7 @@
 'use strict';
 
 /* ============================================================
- * 叮咚机 · 旅行规划 —— 车票模块前端逻辑
+ * 订懂机 · 旅行规划 —— 车票模块前端逻辑
  * 职责：城市自动补全 / 查询 / 结果渲染（机票、火车票）/ 排序 / 交互状态
  * ============================================================ */
 
@@ -201,7 +201,7 @@
 
   function flightCard(f) {
     return `
-      <article class="card">
+      <article class="card ticket-card flight-ticket">
         <div class="card-main">
           <div class="card-top">
             <span class="carrier">${esc(f.airline)}</span>
@@ -245,7 +245,7 @@
       )
       .join('');
     return `
-      <article class="card">
+      <article class="card ticket-card train-ticket">
         <div class="card-main">
           <div class="card-top">
             <span class="carrier">${esc(t.trainNo)}</span>

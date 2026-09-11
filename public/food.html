@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>美食 · 叮咚机旅行规划</title>
-  <meta name="description" content="按目的地查特色菜品、筛选餐厅，或告诉「叮咚机」你的口味需求，获得个性化餐厅推荐">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
+  <title>美食 · 订懂机旅行规划</title>
+  <meta name="description" content="按目的地查特色菜品、筛选餐厅，或告诉「订懂机」你的口味需求，获得个性化餐厅推荐">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E订%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="page-food">
   <header class="topbar">
     <div class="container topbar-inner">
       <a class="brand" href="/">
-        <span class="brand-mark" aria-hidden="true">叮</span>
-        <span class="brand-name">叮咚机<i>旅行规划</i></span>
+        <span class="brand-mark" aria-hidden="true">订</span>
+        <span class="brand-name">订懂机<i>旅行规划</i></span>
       </a>
       <nav class="module-nav" aria-label="功能模块">
         <a href="/ticket.html">车票</a>
@@ -26,9 +26,11 @@
   </header>
 
   <main class="container">
-    <section class="hero">
-      <h1>到一座城，先尝它的味道</h1>
-      <p>查看当地特色菜品、筛选口味 / 人均 / 营业时段合适的餐厅，或直接告诉「叮咚机」你的偏好，让推荐更对味</p>
+    <section class="hero hero-scene hero-food">
+      <span class="hero-kicker">TASTE / 一座城的味道</span>
+      <h1>一座城的味道，值得慢慢寻找</h1>
+      <p>查看当地特色菜品、筛选口味 / 人均 / 营业时段合适的餐厅，或直接告诉「订懂机」你的偏好，让推荐更对味</p>
+      <span class="hero-stamp" aria-hidden="true">先吃一口<br><b>再去散步</b></span>
     </section>
 
     <!-- 顶部：城市 + 三 tab 切换 -->
@@ -62,6 +64,7 @@
         <button class="tab" role="tab" id="tab-personalize" data-tab="personalize" aria-selected="false">个性化</button>
       </div>
     </section>
+
 
     <!-- Tab 1: 特色菜品 -->
     <section class="search-card" id="panel-specialty" data-panel="specialty" aria-label="特色菜品表单">
@@ -167,10 +170,15 @@
     </section>
 
     <p id="empty-tip" class="empty-tip" hidden></p>
+
+    <div class="page-ambient ambient-food" aria-hidden="true">
+      <span class="ambient-plate"></span><span class="ambient-food-dot dot-one"></span><span class="ambient-food-dot dot-two"></span><span class="ambient-food-dot dot-three"></span>
+      <span class="ambient-caption">先吃一口，再去散步</span>
+    </div>
   </main>
 
   <footer class="footer">
-    <div class="container">各模块数据为演示数据，仅用于框架演示 · 叮咚机旅行规划</div>
+    <div class="container">各模块数据为演示数据，仅用于框架演示 · 订懂机旅行规划</div>
   </footer>
   <script src="/js/food.js"></script>
 </body>

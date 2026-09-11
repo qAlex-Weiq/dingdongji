@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>景点搜索 · 叮咚机旅行规划</title>
+  <title>景点搜索 · 订懂机旅行规划</title>
   <meta name="description" content="输入城市，一键获取该城市最值得游览的景点，按热门程度与评分综合排序">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E订%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="page-sight">
   <header class="topbar">
     <div class="container topbar-inner">
       <a class="brand" href="/">
-        <span class="brand-mark" aria-hidden="true">叮</span>
-        <span class="brand-name">叮咚机<i>旅行规划</i></span>
+        <span class="brand-mark" aria-hidden="true">订</span>
+        <span class="brand-name">订懂机<i>旅行规划</i></span>
       </a>
       <nav class="module-nav" aria-label="功能模块">
         <a href="/ticket.html">车票</a>
@@ -26,9 +26,11 @@
   </header>
 
   <main class="container">
-    <section class="hero">
-      <h1>输入城市，发现最值得去的景点</h1>
+    <section class="hero hero-scene hero-sight">
+      <span class="hero-kicker">WANDER / 去看一座城</span>
+      <h1>去看一座城，从值得的地方开始</h1>
       <p>联网搜索城市景点，按热门程度与评分综合排序，门票、开放时间一目了然</p>
+      <span class="hero-stamp" aria-hidden="true">走出去<br><b>遇见风景</b></span>
     </section>
 
     <section class="search-card search-card-sight" aria-label="景点查询">
@@ -52,6 +54,7 @@
       </p>
     </section>
 
+
     <section id="result-section" class="result-section" hidden>
       <div class="result-toolbar">
         <div class="sight-summary" id="sight-summary"></div>
@@ -67,10 +70,16 @@
       </div>
       <div id="sight-list" class="list sight-list"></div>
     </section>
+
+    <div class="page-ambient ambient-sight" aria-hidden="true">
+      <span class="ambient-sun"></span><span class="ambient-hill hill-one"></span><span class="ambient-hill hill-two"></span>
+      <span class="ambient-cityline"></span>
+      <span class="ambient-caption">风景还在更远处</span>
+    </div>
   </main>
 
   <footer class="footer">
-    <div class="container">景点信息仅供参考，出行前请以景区官方公告为准 · 叮咚机旅行规划</div>
+    <div class="container">景点信息仅供参考，出行前请以景区官方公告为准 · 订懂机旅行规划</div>
   </footer>
 
   <div id="map-modal" class="map-modal" hidden role="dialog" aria-modal="true" aria-labelledby="map-modal-name">

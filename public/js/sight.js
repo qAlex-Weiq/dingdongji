@@ -1,7 +1,7 @@
 'use strict';
 
 /* ============================================================
- * 叮咚机 · 旅行规划 —— 景点模块前端逻辑
+ * 订懂机 · 旅行规划 —— 景点模块前端逻辑
  * 职责：城市自动补全 / 景点搜索 / 结果渲染 / 排序 / 交互状态
  * ============================================================ */
 
@@ -247,7 +247,7 @@
       .join('');
 
     return `
-      <article class="card sight-card" data-index="${i}" title="点击在地图中查看位置">
+      <article class="card sight-card travel-note" data-index="${i}" title="点击在地图中查看位置">
         <div class="sight-rank ${i < 3 ? 'rank-top' : ''}">${i + 1}</div>
         <div class="card-main">
           <div class="card-top">

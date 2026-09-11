@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>车票查询 · 叮咚机旅行规划</title>
+  <title>车票查询 · 订懂机旅行规划</title>
   <meta name="description" content="输入起点与终点，一键查询机票与火车班次、价格">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E订%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="page-ticket">
   <header class="topbar">
     <div class="container topbar-inner">
       <a class="brand" href="/">
-        <span class="brand-mark" aria-hidden="true">叮</span>
-        <span class="brand-name">叮咚机<i>旅行规划</i></span>
+        <span class="brand-mark" aria-hidden="true">订</span>
+        <span class="brand-name">订懂机<i>旅行规划</i></span>
       </a>
       <nav class="module-nav" aria-label="功能模块">
         <a href="/ticket.html" class="is-active">车票</a>
@@ -26,9 +26,11 @@
   </header>
 
   <main class="container">
-    <section class="hero">
-      <h1>起点到终点，机票火车一目了然</h1>
+    <section class="hero hero-scene hero-ticket">
+      <span class="hero-kicker">GO / 出发本身就是风景</span>
+      <h1>去往远方的班次，先替你看好</h1>
       <p>同时查询航班与火车班次，快速比价，帮你定下最合适的行程</p>
+      <span class="hero-stamp" aria-hidden="true">现在出发<br><b>去远方</b></span>
     </section>
 
     <section class="search-card" aria-label="行程查询">
@@ -53,6 +55,7 @@
       <datalist id="city-list"></datalist>
     </section>
 
+
     <section id="result-section" class="result-section" hidden>
       <div class="result-toolbar">
         <div class="tabs" role="tablist" aria-label="交通方式">
@@ -76,10 +79,18 @@
       <div id="flights-panel" class="list" role="tabpanel" aria-labelledby="tab-flights"></div>
       <div id="trains-panel" class="list" role="tabpanel" aria-labelledby="tab-trains" hidden></div>
     </section>
+
+    <div class="page-ambient ambient-ticket" aria-hidden="true">
+      <span class="ambient-route"></span>
+      <span class="ambient-node node-a"></span><span class="ambient-node node-b"></span><span class="ambient-node node-c"></span>
+      <span class="ambient-vehicle vehicle-plane">✦</span>
+      <span class="ambient-vehicle vehicle-train">▰</span>
+      <span class="ambient-caption">下一站，正在靠近</span>
+    </div>
   </main>
 
   <footer class="footer">
-    <div class="container">机票为演示数据 · 火车票价与余票优先取自 12306 实时接口 · 叮咚机旅行规划</div>
+    <div class="container">机票为演示数据 · 火车票价与余票优先取自 12306 实时接口 · 订懂机旅行规划</div>
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

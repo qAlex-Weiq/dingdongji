@@ -207,7 +207,7 @@
     }
     list.forEach((d, i) => {
       const card = document.createElement('article');
-      card.className = 'card sight-card';
+      card.className = 'card sight-card menu-card';
       const tags = (d.tags || [])
         .slice(0, 4)
         .map((t) => `<span class="tag-soft">${escapeHtml(t)}</span>`)
@@ -327,7 +327,7 @@
       ? '<div class="sight-score"><em>—</em><span>人均以门店为准</span></div>'
       : `<div class="sight-score"><em>¥${r.avgPrice}</em><span>人均参考</span></div>`;
     return `
-      <article class="card sight-card">
+      <article class="card sight-card restaurant-card">
         <div class="sight-rank ${i < 3 ? 'rank-top' : ''}">${i + 1}</div>
         <div class="card-main">
           <div class="card-top">
@@ -414,7 +414,7 @@
     list.forEach((rec, idx) => {
       const r = rec.restaurant;
       const card = document.createElement('article');
-      card.className = 'card sight-card';
+      card.className = 'card sight-card restaurant-card recommendation-card';
       // 复用餐厅卡结构；推荐理由替换招牌菜行（无招牌菜则插到营业信息前），侧边加匹配指数
       let html = restaurantCard(r, idx);
       if (html.includes('<p class="sight-desc">')) {

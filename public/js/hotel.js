@@ -1,7 +1,7 @@
 'use strict';
 
 /* ============================================================
- * 叮咚机 · 旅行规划 —— 酒店模块前端逻辑
+ * 订懂机 · 旅行规划 —— 酒店模块前端逻辑
  * 职责：城市自动补全 / 偏好选项（价格档位 + 位置偏好）/
  *       酒店搜索 / 结果渲染 / 排序 / 交互状态
  * ============================================================ */
@@ -245,7 +245,7 @@
       : '<div class="hotel-price tba"><em>价格待询</em><span>以预订平台为准</span></div>';
 
     return `
-      <article class="card sight-card hotel-card">
+      <article class="card sight-card hotel-card stay-card">
         <div class="sight-rank ${i < 3 ? 'rank-top' : ''}">${i + 1}</div>
         <div class="card-main">
           <div class="card-top">
