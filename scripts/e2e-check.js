@@ -2,7 +2,8 @@
 
 /**
  * 无头浏览器端到端验证：
- * 1. 打开首页 → 2. 填表查询 北京→上海 → 3. 校验机票/火车票渲染 → 4. 截图存档
+ * 1. 首页四模块入口 → 2. 进入车票模块查询 北京→上海 → 3. 校验机票/火车票渲染与交互
+ * 4. 酒店/景点/饭店占位页可达 → 5. 截图存档
  */
 
 const path = require('path');
@@ -24,14 +25,23 @@ const path = require('path');
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(`console.error: ${msg.text()}`);
   });
-  // 记录 API 请求与响应状态，便于排查
   page.on('response', (res) => {
     if (res.url().includes('/api/')) console.log(`[api] ${res.status()} ${res.url()}`);
   });
 
-  await page.goto('http://localhost:3000', { waitUntil: 'networkidle' });
+  // ---- 首页：模块选择 ----
+  await page.goto('http://localhost:3000/', { waitUntil: 'networkidle' });
+  const moduleCards = await page.locator('.module-card').count();
+  console.log(`首页模块入口: ${moduleCards} 个`);
+  if (moduleCards !== 4) throw new Error(`期望 4 个模块入口，实际 ${moduleCards}`);
+  await page.screenshot({ path: path.join('.pilotdeck', 'shot-home.png') });
 
-  // 城市自动补全已加载
+  // ---- 进入车票模块 ----
+  await page.click('.module-card[href="/ticket.html"]');
+  await page.waitForURL('**/ticket.html');
+  const activeNav = (await page.locator('.module-nav a.is-active').innerText()).trim();
+  console.log(`车票模块导航高亮: ${activeNav}`);
+
   const cityOptions = await page.locator('#city-list option').count();
   console.log(`城市自动补全选项: ${cityOptions} 个`);
 
@@ -62,26 +72,33 @@ const path = require('path');
   const trainCards = await page.locator('#trains-panel .card:not(.skeleton)').count();
   console.log(`火车票卡片: ${trainCards} 张`);
 
-  // 抽查第一张火车票卡片内容
   const firstTrain = await page.locator('#trains-panel .card').first().innerText();
   console.log('首张火车票卡片摘要:', firstTrain.replace(/\s+/g, ' ').slice(0, 120));
 
-  // 排序切换：价格最低
+  // 排序
   await page.selectOption('#sort-select', 'price');
   await page.waitForTimeout(300);
   const firstPrice = await page.locator('#trains-panel .card .price').first().innerText();
   console.log('按价格排序后最低价:', firstPrice.trim());
 
-  // 交换按钮
+  // 交换城市
   await page.click('#swap-btn');
   const swapped = await page.inputValue('#from-input');
   console.log(`交换后出发城市: ${swapped}`);
 
-  // 截图（桌面 + 移动）
+  // ---- 截图（桌面 + 移动） ----
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-desktop.png'), fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join('.pilotdeck', 'shot-mobile.png'), fullPage: false });
+
+  // ---- 占位模块页可达 ----
+  for (const p of ['hotel', 'sight', 'food']) {
+    await page.goto(`http://localhost:3000/${p}.html`, { waitUntil: 'networkidle' });
+    const heading = (await page.locator('.coming-soon h1').innerText()).trim();
+    const badge = (await page.locator('.cs-badge').innerText()).trim();
+    console.log(`${p}.html: ${heading}（${badge}）`);
+  }
 
   await browser.close();
 

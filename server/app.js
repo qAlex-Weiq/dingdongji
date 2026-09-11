@@ -2,7 +2,8 @@
 
 const path = require('path');
 const express = require('express');
-const apiRouter = require('./routes/search');
+const citiesRouter = require('./routes/cities');
+const ticketRouter = require('./routes/ticket');
 
 function createApp() {
   const app = express();
@@ -10,8 +11,20 @@ function createApp() {
   app.use(express.json());
 
   // ---- API ----
-  app.use('/api', apiRouter);
+  // 共享：GET /api/cities（城市自动补全，各模块通用）
+  app.use('/api', citiesRouter);
+  // 车票模块：GET /api/ticket/search（机票 + 火车票）
+  // 后续模块按同样方式挂载：/api/hotel、/api/sight、/api/food
+  app.use('/api/ticket', ticketRouter);
+
   app.use('/api', (req, res) => res.status(404).json({ error: '接口不存在' }));
+
+  // API 统一错误处理
+  // eslint-disable-next-line no-unused-vars
+  app.use('/api', (err, req, res, next) => {
+    console.error('[api] error:', err);
+    res.status(500).json({ error: '服务器内部错误，请稍后重试' });
+  });
 
   // ---- 前端静态资源 ----
   app.use(express.static(path.join(__dirname, '..', 'public')));

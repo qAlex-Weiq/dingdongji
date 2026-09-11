@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>车票查询 · 叮咚机旅行规划</title>
+  <meta name="description" content="输入起点与终点，一键查询机票与火车班次、价格">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d4f91'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3E叮%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">叮</span>
+        <span class="brand-name">叮咚机<i>旅行规划</i></span>
+      </a>
+      <nav class="module-nav" aria-label="功能模块">
+        <a href="/ticket.html" class="is-active">车票</a>
+        <a href="/hotel.html">酒店</a>
+        <a href="/sight.html">景点</a>
+        <a href="/food.html">饭店</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>起点到终点，机票火车一目了然</h1>
+      <p>同时查询航班与火车班次，快速比价，帮你定下最合适的行程</p>
+    </section>
+
+    <section class="search-card" aria-label="行程查询">
+      <form id="search-form" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="from-input">出发城市</label>
+          <input id="from-input" list="city-list" placeholder="如：北京" maxlength="12" required>
+        </div>
+        <button type="button" id="swap-btn" class="swap-btn" title="交换出发与到达" aria-label="交换出发与到达城市">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+        </button>
+        <div class="field">
+          <label for="to-input">到达城市</label>
+          <input id="to-input" list="city-list" placeholder="如：上海" maxlength="12" required>
+        </div>
+        <div class="field field-date">
+          <label for="date-input">出发日期</label>
+          <input id="date-input" type="date" required>
+        </div>
+        <button type="submit" class="search-btn" id="search-btn">查 询</button>
+      </form>
+      <datalist id="city-list"></datalist>
+    </section>
+
+    <section id="result-section" class="result-section" hidden>
+      <div class="result-toolbar">
+        <div class="tabs" role="tablist" aria-label="交通方式">
+          <button class="tab is-active" id="tab-flights" role="tab" aria-selected="true" type="button">
+            机票<span class="tab-count" id="flight-count">0</span>
+          </button>
+          <button class="tab" id="tab-trains" role="tab" aria-selected="false" type="button">
+            火车票<span class="tab-count" id="train-count">0</span>
+          </button>
+        </div>
+        <div class="sort">
+          <label for="sort-select">排序</label>
+          <select id="sort-select">
+            <option value="dep">最早出发</option>
+            <option value="price">价格最低</option>
+            <option value="duration">用时最短</option>
+          </select>
+        </div>
+      </div>
+      <p class="route-summary" id="route-summary"></p>
+      <div id="flights-panel" class="list" role="tabpanel" aria-labelledby="tab-flights"></div>
+      <div id="trains-panel" class="list" role="tabpanel" aria-labelledby="tab-trains" hidden></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">班次与票价为演示数据，仅用于框架演示 · 叮咚机旅行规划</div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/app.js"></script>
+</body>
+</html>

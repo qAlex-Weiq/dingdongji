@@ -465,6 +465,159 @@ button { font-family: inherit; }
 .toast.is-visible { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 .toast-error { background: #c0392b; }
 
+/* ---------- 顶栏模块导航 ---------- */
+
+.module-nav { display: flex; gap: 2px; margin-left: auto; }
+
+.module-nav a {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.module-nav a:hover { color: var(--primary); background: var(--primary-soft); }
+.module-nav a.is-active { color: var(--primary); font-weight: 600; background: var(--primary-soft); }
+
+/* ---------- 首页：模块选择 ---------- */
+
+.hero-home { padding: 54px 0 30px; }
+.hero-home h1 { font-size: 30px; }
+
+.module-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 44px;
+}
+
+.module-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  text-decoration: none;
+  color: var(--text);
+  transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
+}
+
+.module-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+.module-icon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+
+.module-icon svg { width: 26px; height: 26px; }
+
+.module-info { min-width: 0; }
+
+.module-name { display: block; font-size: 17px; font-weight: 700; line-height: 1.4; }
+.module-desc { display: block; font-size: 13px; color: var(--text-3); margin-top: 2px; }
+
+.module-status {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.module-status.st-live { color: var(--green); background: rgba(43, 138, 62, 0.09); }
+.module-status.st-dev { color: var(--text-3); background: #eef0f4; }
+
+/* ---------- 模块占位页（开发中） ---------- */
+
+.coming-soon {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  padding: 60px 28px 56px;
+  margin: 44px 0 40px;
+}
+
+.cs-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: 16px;
+}
+
+.cs-icon svg { width: 36px; height: 36px; }
+
+.coming-soon h1 { margin: 0 0 10px; font-size: 24px; letter-spacing: 1px; }
+
+.cs-badge {
+  display: inline-block;
+  font-size: 12.5px;
+  color: var(--amber);
+  background: rgba(217, 119, 6, 0.1);
+  border-radius: 999px;
+  padding: 2px 12px;
+}
+
+.cs-hint { margin: 20px 0 6px; color: var(--text-2); font-size: 14px; }
+
+.cs-list {
+  display: inline-block;
+  text-align: left;
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.cs-list li { position: relative; padding: 5px 0 5px 22px; }
+
+.cs-list li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 13px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.55;
+}
+
+.cs-back {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 32px;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.cs-back:hover { background: var(--primary-strong); }
+
 /* ---------- 响应式 ---------- */
 
 @media (max-width: 760px) {
@@ -498,4 +651,10 @@ button { font-family: inherit; }
   .timeline { grid-template-columns: auto 1fr auto; gap: 10px; }
   .node-time { font-size: 20px; }
   .mid { min-width: 60px; }
+
+  .hero-home { padding: 34px 0 22px; }
+  .hero-home h1 { font-size: 23px; }
+  .module-grid { grid-template-columns: 1fr; }
+  .module-nav a { padding: 6px 8px; font-size: 13px; }
+  .brand-name i { display: none; }
 }

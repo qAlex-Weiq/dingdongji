@@ -1,7 +1,7 @@
 'use strict';
 
 /* ============================================================
- * 叮咚机 · 行程助手 —— 前端逻辑
+ * 叮咚机 · 旅行规划 —— 车票模块前端逻辑
  * 职责：城市自动补全 / 查询 / 结果渲染（机票、火车票）/ 排序 / 交互状态
  * ============================================================ */
 
@@ -116,7 +116,7 @@
     setLoading(true);
     try {
       const params = new URLSearchParams({ from, to, date });
-      const res = await fetch(`/api/search?${params.toString()}`);
+      const res = await fetch(`/api/ticket/search?${params.toString()}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || `查询失败（${res.status}）`);
       state.data = body;
