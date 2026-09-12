@@ -246,6 +246,68 @@ function extractBudget(text) {
   return null;
 }
 
+/**
+ * 把自由文本切成搜索词：按中英文标点 / 空格分词，并保留原句。
+ * 支持用户用逗号分隔多个偏好（如「辣, 火锅」）。
+ */
+function tokenizeQuery(text) {
+  return String(text || '')
+    .split(/[,，、;；。\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/** 餐厅可被搜索的全部文本字段（name / district / tags / cuisines / signatureDishes） */
+function restaurantHaystack(r) {
+  return [
+    r.name,
+    r.location && r.location.district,
+    r.location && r.location.address,
+    ...(r.tags || []),
+    ...(r.cuisines || []),
+    ...(r.signatureDishes || []),
+  ]
+    .filter(Boolean)
+    .map((s) => String(s));
+}
+
+/**
+ * 自由词与餐厅的模糊匹配打分。
+ * 命中不同字段给不同权重：菜系/招牌菜 > 标签 > 行政区 > 店名。
+ * 双向 includes，保证「火锅」命中「重庆火锅」，也保证「虾饺白切鸡」这类
+ * 未切分的长词能命中「虾饺」。理由里回显的是命中的字段值本身，
+ * 而不是用户输入的整句，避免出现「招牌菜含「虾饺白切鸡」」这种误导文案。
+ */
+function fuzzyFieldScore(term, r) {
+  const t = String(term).toLowerCase();
+  if (!t) return { score: 0, reasons: [] };
+  // 返回命中的字段原值列表
+  const hits = (arr) =>
+    (arr || []).filter((v) => {
+      const s = String(v).toLowerCase();
+      return s.includes(t) || (t.length >= 2 && s.length >= 2 && t.includes(s));
+    });
+
+  let score = 0;
+  const reasons = [];
+
+  const cuisineHits = hits(r.cuisines);
+  if (cuisineHits.length) { score += 0.6; reasons.push(`菜系「${cuisineHits[0]}」`); }
+
+  const dishHits = hits(r.signatureDishes);
+  if (dishHits.length) { score += 0.5; reasons.push(`招牌菜含「${dishHits.slice(0, 2).join('、')}」`); }
+
+  const tagHits = hits(r.tags);
+  if (tagHits.length) { score += 0.45; reasons.push(`标签「${tagHits.slice(0, 2).join('、')}」`); }
+
+  const district = r.location && r.location.district;
+  if (district && hits([district]).length) { score += 0.4; reasons.push(`位于${district}`); }
+
+  if (hits([r.name]).length) { score += 0.35; reasons.push(`店名含「${term}」`); }
+
+  return { score, reasons };
+}
+
 async function localPersonalize(city, query) {
   const text = String(query || '');
   const parsed = [];
@@ -258,12 +320,25 @@ async function localPersonalize(city, query) {
     }
   }
 
+  // 词典之外的自由词（菜系、行政区、菜名等），用于模糊匹配
+  const freeTerms = tokenizeQuery(text).filter(
+    (t) => t.length >= 2 && !matchedKeys.includes(t) && !/^\d+$/.test(t)
+  );
+  // 自由词若能命中本城任何餐厅的字段，作为已识别关键词回显给用户
+  const cityPool = RESTAURANTS.filter((r) => r.city === city);
+  for (const term of freeTerms) {
+    const hitsAny = cityPool.some((r) => fuzzyFieldScore(term, r).score > 0);
+    if (hitsAny && !parsed.some((p) => p.key === term)) {
+      parsed.push({ key: term, matched: true, hint: '关键词匹配', type: 'keyword' });
+    }
+  }
+
   const budget = extractBudget(text);
   if (budget) {
     parsed.push({ key: `预算 ${budget.min}-${budget.max}`, matched: true, hint: '预算区间', type: 'budget' });
   }
 
-  const candidates = RESTAURANTS.filter((r) => r.city === city);
+  const candidates = cityPool;
   const at = nowMin();
   const scored = candidates.map((r) => {
     let score = 0;
@@ -295,6 +370,15 @@ async function localPersonalize(city, query) {
       }
     }
 
+    // 自由词模糊匹配（覆盖 name / district / tags / cuisines / signatureDishes）
+    for (const term of freeTerms) {
+      const f = fuzzyFieldScore(term, r);
+      if (f.score > 0) {
+        score += f.score;
+        reasons.push(...f.reasons);
+      }
+    }
+
     if (budget && r.avgPrice >= budget.min && r.avgPrice <= budget.max) {
       score += 0.5;
       reasons.push(`人均 ${r.avgPrice} 元符合预算 ${budget.min}-${budget.max}`);
@@ -310,31 +394,55 @@ async function localPersonalize(city, query) {
     return { r, score, reasons };
   });
 
-  let threshold = 0.4;
-  let picked = scored.filter((x) => x.score >= threshold).sort((a, b) => b.score - a.score).slice(0, 6);
+  // 命中判定只看「用户偏好」是否真的匹配上，不含评分/营业中这类普适加分，
+  // 否则任意乱码查询都会因为基础分而被误判为命中
+  const relevant = scored.filter((x) => x.reasons.length > 0);
+
   let hint = null;
-  if (picked.length < 3) {
-    threshold = 0.2;
-    picked = scored.filter((x) => x.score >= threshold).sort((a, b) => b.score - a.score).slice(0, 6);
-    if (picked.length > 0) {
-      hint = '放宽偏好后命中这些餐厅';
-    }
+  let fallback = false;
+  let picked;
+
+  if (relevant.length >= 3) {
+    picked = relevant.sort((a, b) => b.score - a.score).slice(0, 6);
+  } else if (relevant.length > 0) {
+    picked = relevant.sort((a, b) => b.score - a.score).slice(0, 6);
+    hint = '放宽偏好后命中这些餐厅';
+  } else {
+    // 无任何偏好命中（乱码 / 本城没有该品类）：回退为本城评分最高的 3 家
+    fallback = true;
+    picked = scored
+      .slice()
+      .sort((a, b) => (b.r.rating - a.r.rating) || (b.r.reviewCount - a.r.reviewCount))
+      .slice(0, 3);
   }
 
   const maxScore = Math.max(...picked.map((p) => p.score), 1);
   const recommendations = picked.map((p) => {
     const r = p.r;
     const parts = [];
-    if (budget && r.avgPrice >= budget.min && r.avgPrice <= budget.max) {
-      parts.push(`人均 ${r.avgPrice} 元符合预算`);
+    if (fallback) {
+      parts.push(`本地评分 ${r.rating}（${r.reviewCount} 条评价），${city}人气之选`);
+    } else {
+      if (budget && r.avgPrice >= budget.min && r.avgPrice <= budget.max) {
+        parts.push(`人均 ${r.avgPrice} 元符合预算`);
+      }
+      // 去重后按原始顺序保留理由，避免同一标签重复出现
+      const uniq = [...new Set(p.reasons)];
+      const pickBy = (prefix) => uniq.filter((t) => t.startsWith(prefix));
+      const tagHits = pickBy('标签');
+      if (tagHits.length) parts.push(`标签命中：${tagHits.map((t) => t.replace('标签「', '').replace('」', '')).join('、')}`);
+      const slotHits = pickBy('供应');
+      if (slotHits.length) parts.push(slotHits.map((t) => t.replace('供应「', '').replace('」', '')).join('、') + ' 时段');
+      const cuisineHits = pickBy('菜系');
+      if (cuisineHits.length) parts.push(cuisineHits.map((t) => t.replace('菜系「', '').replace('」', '')).join('、'));
+      const dishHits = pickBy('招牌菜含');
+      if (dishHits.length) parts.push(dishHits[0]);
+      const areaHits = pickBy('位于');
+      if (areaHits.length) parts.push(areaHits[0]);
+      const nameHits = pickBy('店名含');
+      if (nameHits.length) parts.push(nameHits[0]);
+      if (parts.length === 0) parts.push(`评分 ${r.rating}，本地口碑不错`);
     }
-    const tagHits = p.reasons.filter((t) => t.startsWith('标签'));
-    if (tagHits.length) parts.push(`标签命中：${tagHits.map((t) => t.replace('标签「', '').replace('」', '')).join('、')}`);
-    const slotHits = p.reasons.filter((t) => t.startsWith('供应'));
-    if (slotHits.length) parts.push(slotHits.map((t) => t.replace('供应「', '').replace('」', '')).join('、') + ' 时段');
-    const cuisineHits = p.reasons.filter((t) => t.startsWith('菜系'));
-    if (cuisineHits.length) parts.push(cuisineHits.map((t) => t.replace('菜系「', '').replace('」', '')).join('、'));
-    if (parts.length === 0) parts.push(`评分 ${r.rating}，本地口碑不错`);
     return {
       restaurant: decorateRestaurant(r, isOpenAt(r.hours, at), city),
       score: Number((p.score / maxScore).toFixed(2)),
@@ -342,7 +450,7 @@ async function localPersonalize(city, query) {
     };
   });
 
-  return { parsed, recommendations, hint };
+  return { parsed, recommendations, hint, fallback };
 }
 
 const localSource = {
@@ -533,7 +641,9 @@ async function personalize({ city, query, source } = {}) {
     throw new Error(`「${chain[0].meta.label}」数据源不支持个性化推荐，请选择「AI 联网搜索」或「本地数据」`);
   }
   const cacheKey = JSON.stringify(['personalize', canonical, String(query), capable.map((s) => s.meta.name).join('>')]);
-  return runWithSources(cacheKey, capable, (src) => src.personalize(canonical, String(query)), capable.length === 1 && chain.length === 1);
+  const result = await runWithSources(cacheKey, capable, (src) => src.personalize(canonical, String(query)), capable.length === 1 && chain.length === 1);
+  // fallback 字段统一补齐：LLM 源不返回该字段，前端据此决定是否展示兜底提示横幅
+  return { fallback: false, ...result };
 }
 
 /** 各数据源配置状态（前端提示用） */

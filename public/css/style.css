@@ -5230,3 +5230,43 @@ body {
 }
 
 .empty .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ============================================================
+ * 个性化 tab：需求输入框下方的快捷偏好标签
+ * ============================================================ */
+.quick-query-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quick-query-chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  background: #fff3e2;
+  color: #a65e3d;
+  border: 1px solid #f0dcc2;
+}
+
+.quick-query-chip:hover {
+  background: #fbe6cd;
+  border-color: #d8a84e;
+  color: #8a4a2c;
+}
+
+.quick-query-chip:active { transform: translateY(1px); }
+
+.quick-query-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 关键词无命中时的兜底推荐提示（比普通 hint 更醒目） */
+.personalize-hint.is-fallback {
+  background: #fff3e2;
+  color: #8a4a2c;
+  border-left: 3px solid #d8a84e;
+  border-radius: 4px;
+  line-height: 1.6;
+}
