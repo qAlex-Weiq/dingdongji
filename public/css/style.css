@@ -4895,8 +4895,8 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  width: 72px;
-  height: 72px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, transparent 49%, #f4ead7 50%);
   pointer-events: none;
 }
