@@ -87,7 +87,7 @@
   padding: 10px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .basket-item.is-must-go {
@@ -134,7 +134,7 @@
   font-weight: 600;
 }
 
-.remove-btn:hover { background: #fdf0f0; border-color: #e03131; color: #e03131; }
+.remove-btn:hover { background: #fdf0f0; border-color: #c0392b; color: #c0392b; }
 
 /* ---------- 生成控制条 ---------- */
 
@@ -147,26 +147,18 @@
   border-top: 1px solid var(--border);
 }
 
-.plan-field { display: flex; flex-direction: column; gap: 5px; }
-
-.plan-field label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
 .stepper {
   display: flex;
   align-items: center;
   border: 1px solid var(--border-strong);
-  border-radius: 9px;
+  border-radius: 8px;
   overflow: hidden;
   background: var(--surface);
 }
 
 .stepper button {
-  width: 34px;
-  height: 36px;
+  width: 40px;
+  height: 42px;
   border: none;
   background: var(--surface);
   color: var(--primary);
@@ -180,8 +172,8 @@
 .stepper button:disabled { color: var(--text-3); cursor: not-allowed; background: var(--surface); }
 
 .stepper input {
-  width: 42px;
-  height: 36px;
+  width: 44px;
+  height: 42px;
   border: none;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
@@ -196,17 +188,6 @@
 .stepper input::-webkit-outer-spin-button,
 .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-#start-date {
-  height: 38px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--text);
-  background: var(--surface);
-}
-
 .plan-actions {
   display: flex;
   align-items: center;
@@ -215,36 +196,7 @@
 }
 
 .plan-hint { font-size: 13px; color: var(--text-3); }
-.plan-hint.is-blocked { color: #e03131; }
-
-.btn-primary {
-  padding: 10px 26px;
-  border: none;
-  border-radius: 9px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 14.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 130ms;
-}
-
-.btn-primary:hover:not(:disabled) { background: var(--primary-strong); }
-.btn-primary:disabled { background: #aab4c2; cursor: not-allowed; }
-
-.btn-ghost {
-  padding: 7px 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--primary);
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 120ms, border-color 120ms;
-}
-
-.btn-ghost:hover { background: var(--primary-soft); border-color: var(--primary); }
+.plan-hint.is-blocked { color: #c0392b; }
 
 /* ---------- Agent 编排过程 ---------- */
 
@@ -347,7 +299,7 @@
   padding: 12px 18px;
   background: #fffbeb;
   border: 1px solid #fde68a;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .plan-warnings ul { margin: 0; padding-left: 18px; }
@@ -540,40 +492,6 @@
 
 .auto-plan-tier { margin-bottom: 16px; }
 
-.pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* 药丸沿用 .chip 的视觉语言，仅补充推荐角标 */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: #f1f4fb;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
-  user-select: none;
-}
-
-.pill:hover { background: #e4ebf7; }
-
-.pill.is-on {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-  font-weight: 600;
-}
-
-.pill.is-on:hover { background: var(--primary-strong); }
-
 .pill-rec {
   font-size: 10.5px;
   padding: 1px 6px;
@@ -582,7 +500,7 @@
   letter-spacing: .5px;
 }
 
-.pill:not(.is-on) .pill-rec {
+.pill:not(.is-active) .pill-rec {
   background: var(--primary-soft);
   color: var(--primary);
 }
@@ -601,7 +519,7 @@
 /* 建议项整体压低一档明度，与用户亲手选的条目区分开 */
 .slot-item.is-suggested {
   background: #fcfbf7;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .slot-badge-ai {
@@ -646,8 +564,8 @@
 
 .sugg-btn.is-dismiss:hover {
   background: #fdf0f0;
-  border-color: #e03131;
-  color: #e03131;
+  border-color: #c0392b;
+  color: #c0392b;
 }
 
 /* 每日「移除所有 AI 建议」链接 —— 克制的文字按钮，不抢主操作视线 */
@@ -663,7 +581,7 @@
   text-underline-offset: 2px;
 }
 
-.day-sugg-clear:hover { color: #e03131; }
+.day-sugg-clear:hover { color: #c0392b; }
 
 /* ---------- 响应式 ---------- */
 
@@ -679,4 +597,129 @@
   .auto-plan-grid { grid-template-columns: 1fr 1fr; }
   .auto-plan-actions { flex-direction: column; align-items: stretch; }
   .auto-plan-actions .plan-hint { margin-right: 0; text-align: center; }
+}
+/* ---------- 行程管理：与其他模块页统一的胶囊按钮（42px / #d77959 橙） ---------- */
+
+.page-plan .search-btn {
+  border: 0;
+  background: #d77959;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(10, 33, 32, 0.22);
+}
+
+.page-plan .search-btn:hover { background: #c76548; }
+
+/* ---------- 页头场景带：hero 头图（与全局 hero-scene 同构，紫色调） ---------- */
+
+.page-plan .hero-plan {
+  min-height: 290px;
+  margin: 26px 0 32px;
+  padding: 54px 42% 58px 52px;
+  background: #e7e6f4;
+  color: #3d467a;
+}
+
+.page-plan .hero-plan::before {
+  background-image: linear-gradient(90deg, rgba(231, 230, 244, 0.12), transparent 45%), url("/images/landmark-8.jpg");
+}
+
+.page-plan .hero-plan .hero-kicker { color: #7a70a7; }
+
+.page-plan .hero-plan h1 { font-size: 32px; }
+
+.page-plan .hero-plan p { color: rgba(61, 70, 122, 0.7); }
+
+/* 一键规划卡悬浮到头图下缘 */
+.page-plan .auto-plan {
+  position: relative;
+  z-index: 2;
+  margin-top: -58px;
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 32px rgba(61, 70, 122, 0.12);
+}
+
+@media (min-width: 761px) {
+  .page-plan .hero-plan { margin-bottom: 54px; }
+}
+
+/* ---------- 行程篮分组：四类场景色（沿用全局 token，与其他页面统一） ---------- */
+
+.basket-group-head::before {
+  content: "";
+  flex-shrink: 0;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.basket-group-ticket .basket-group-head { color: var(--primary); }
+.basket-group-ticket .basket-group-head::before { background: var(--primary); }
+
+.basket-group-hotel .basket-group-head { color: var(--green); }
+.basket-group-hotel .basket-group-head::before { background: var(--green); }
+
+.basket-group-sight .basket-group-head { color: var(--amber); }
+.basket-group-sight .basket-group-head::before { background: var(--amber); }
+
+.basket-group-dish .basket-group-head { color: var(--accent); }
+.basket-group-dish .basket-group-head::before { background: var(--accent); }
+
+/* ---------- 页尾场景带：氛围装饰（图钉 + 虚线路径） ---------- */
+
+.ambient-plan {
+  position: relative;
+  height: 150px;
+  margin: 26px 0 6px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(115deg, #eae8f6, #dcd7f0 52%, #f1e6d6);
+}
+
+.ambient-plan-line {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 58px;
+  border-top: 2px dashed rgba(61, 70, 122, 0.35);
+}
+
+.ambient-plan-pin {
+  position: absolute;
+  top: 46px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #3d467a;
+  box-shadow: 0 3px 8px rgba(61, 70, 122, 0.35);
+}
+
+.ambient-plan-pin::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.pin-one { left: 20%; }
+.pin-two { left: 49%; background: #e8590c; }
+.pin-three { left: 76%; background: #2b8a3e; }
+
+.ambient-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  color: rgba(61, 70, 122, 0.72);
+  font-size: 12.5px;
+  letter-spacing: 3px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .page-plan .hero-plan { min-height: 0; padding: 40px 26px 44px; }
+  .ambient-plan { height: 120px; }
+  .ambient-caption { font-size: 11.5px; letter-spacing: 2px; white-space: normal; width: 90%; text-align: center; }
 }

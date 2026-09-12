@@ -29,6 +29,13 @@
 
   <main class="container">
 
+    <section class="hero hero-scene hero-plan">
+      <span class="hero-kicker">PLAN / 把想去的地方排成一段旅程</span>
+      <h1>从一个目的地，写出完整行程</h1>
+      <p>把车票、酒店、景点和美食放进同一个行程篮，再交给订懂机编排成每日路线。</p>
+      <span class="hero-stamp" aria-hidden="true">慢慢安排<br><b>自在出发</b></span>
+    </section>
+
     <!-- ⓪ 一键智能规划 -->
     <section class="search-card auto-plan" id="auto-plan">
       <div class="plan-head">
@@ -65,16 +72,16 @@
 
       <div class="field auto-plan-tier">
         <label id="ap-tier-label">偏好选择</label>
-        <div class="pills" role="radiogroup" aria-labelledby="ap-tier-label">
+        <div class="pill-group" role="radiogroup" aria-labelledby="ap-tier-label">
           <button type="button" class="pill" role="radio" aria-checked="false" data-tier="budget">🏷️ 经济实惠</button>
-          <button type="button" class="pill is-on" role="radio" aria-checked="true" data-tier="comfort">☕ 舒适均衡<span class="pill-rec">推荐</span></button>
+          <button type="button" class="pill is-active" role="radio" aria-checked="true" data-tier="comfort">☕ 舒适均衡<span class="pill-rec">推荐</span></button>
           <button type="button" class="pill" role="radio" aria-checked="false" data-tier="luxury">✨ 品质轻奢</button>
         </div>
       </div>
 
       <div class="auto-plan-actions">
         <span class="plan-hint" id="ap-hint"></span>
-        <button type="button" class="btn-primary" id="ap-generate">🚀 一键生成全套行程</button>
+        <button type="button" class="search-btn" id="ap-generate">🚀 一键生成全套行程</button>
       </div>
     </section>
 
@@ -112,7 +119,7 @@
         </div>
         <div class="plan-actions">
           <span class="plan-hint" id="plan-hint"></span>
-          <button type="button" class="btn-primary" id="generate-btn">生成行程</button>
+          <button type="button" class="search-btn" id="generate-btn">生成行程</button>
         </div>
       </div>
     </section>
@@ -140,6 +147,13 @@
       </div>
       <div id="timeline"></div>
     </section>
+
+
+    <div class="page-ambient ambient-plan" aria-hidden="true">
+      <span class="ambient-plan-line"></span>
+      <span class="ambient-plan-pin pin-one"></span><span class="ambient-plan-pin pin-two"></span><span class="ambient-plan-pin pin-three"></span>
+      <span class="ambient-caption">把想去的地方，排成一段好时光</span>
+    </div>
 
   </main>
 

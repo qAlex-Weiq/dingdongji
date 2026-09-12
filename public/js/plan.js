@@ -227,7 +227,7 @@
       pill.addEventListener('click', () => {
         els.apTierPills.forEach((p) => {
           const on = p === pill;
-          p.classList.toggle('is-on', on);
+          p.classList.toggle('is-active', on);
           p.setAttribute('aria-checked', on ? 'true' : 'false');
         });
         state.tier = pill.dataset.tier || 'comfort';
@@ -452,7 +452,7 @@
         const label = GROUP_META[type]?.label || type;
         const rows = list.map((it) => renderBasketItem(it, type)).join('');
         return `
-          <div class="basket-group">
+          <div class="basket-group basket-group-${esc(type)}">
             <div class="basket-group-head">
               ${esc(label)}
               <span class="basket-group-count">${list.length}</span>
@@ -497,7 +497,7 @@
 
     // 仅景点支持必去标记（车票/酒店本身就是固定锚点）
     const pinBtn = type === 'sight'
-      ? `<button type="button" class="pin-btn ${it.mustGo ? 'is-on' : ''}" aria-pressed="${it.mustGo}" title="标记为必去，Agent 会优先安排">📌 必去</button>`
+      ? `<button type="button" class="pin-btn ${it.mustGo ? 'is-active' : ''}" aria-pressed="${it.mustGo}" title="标记为必去，Agent 会优先安排">📌 必去</button>`
       : '';
 
     return `
