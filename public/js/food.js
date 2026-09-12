@@ -1,5 +1,4 @@
 'use strict';
-
 (function () {
   const cityInput = document.getElementById('city-input');
   const cityList = document.getElementById('city-list');
@@ -15,11 +14,9 @@
   const resultSection = document.getElementById('result-section');
   const resultSummary = document.getElementById('result-summary');
   const emptyTip = document.getElementById('empty-tip');
-
   const formSpecialty = document.getElementById('form-specialty');
   const formRestaurant = document.getElementById('form-restaurant');
   const formPersonalize = document.getElementById('form-personalize');
-
   const resultPanels = {
     specialty: document.getElementById('specialty-panel'),
     restaurant: document.getElementById('restaurant-panel'),
@@ -28,18 +25,13 @@
   const parsedChips = document.getElementById('parsed-chips');
   const personalizeHint = document.getElementById('personalize-hint');
   const personalizeList = document.getElementById('personalize-list');
-
   const cuisineChips = document.getElementById('cuisine-chips');
-
   let currentTab = 'specialty';
   let cuisineCode = new Map(); // code -> {code, name}
-
   // ---------- 工具 ----------
-
   const STAR_SVG =
     '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
     '<path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg>';
-
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -48,7 +40,6 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
-
   function showError(msg) {
     LLMProgress.stop();
     emptyTip.hidden = false;
@@ -56,13 +47,11 @@
     emptyTip.className = 'empty-tip error';
     resultSection.hidden = true;
   }
-
   function clearError() {
     emptyTip.hidden = true;
     emptyTip.textContent = '';
     emptyTip.className = 'empty-tip';
   }
-
   function setSummary(text, sourceInfo) {
     let html = escapeHtml(text || '');
     if (sourceInfo && sourceInfo.sourceLabel) {
@@ -70,7 +59,6 @@
     }
     resultSummary.innerHTML = html;
   }
-
   function updateSourceHint() {
     if (sourceHint && sourceSelect) sourceHint.hidden = sourceSelect.value !== 'llm';
   }
@@ -90,7 +78,6 @@
   function loadingText(fallback) {
     return sourceSelect && sourceSelect.value === 'llm' ? 'AI 生成中…' : fallback;
   }
-
   /** LLM 慢速查询：显示分阶段进度横幅；其余数据源显示原加载文案 */
   function llmLoading(text) {
     if (sourceSelect.value === 'llm') {
@@ -102,7 +89,6 @@
       emptyTip.className = 'empty-tip';
     }
   }
-
   function setTab(tab) {
     currentTab = tab;
     tabs.forEach((t) => {
@@ -118,7 +104,6 @@
     });
     updateSourceOptions();
   }
-
   function requireCity() {
     const v = cityInput.value.trim();
     if (!v) {
@@ -127,9 +112,7 @@
     }
     return v;
   }
-
   // ---------- 城市自动补全 ----------
-
   async function loadCities() {
     try {
       const res = await fetch('/api/cities');
@@ -146,9 +129,7 @@
       console.warn('[food] load cities failed', e);
     }
   }
-
   // ---------- 菜系 chips ----------
-
   async function loadCuisines() {
     try {
       const res = await fetch('/api/food/cuisines');
@@ -173,24 +154,19 @@
       console.warn('[food] load cuisines failed', e);
     }
   }
-
   function selectedCuisineNames() {
     return Array.from(cuisineChips.querySelectorAll('.chip.is-on')).map((b) => b.dataset.name);
   }
-
   // ---------- Tab 1: 特色菜品 ----------
-
   async function submitSpecialty(evt) {
     evt.preventDefault();
     clearError();
     let city;
     try { city = requireCity(); } catch (e) { return showError(e.message); }
     const category = document.getElementById('specialty-category').value;
-
     setTab('specialty');
     resultSection.hidden = true;
     llmLoading('加载中…');
-
     try {
       const url = new URL('/api/food/specialties', location.origin);
       url.searchParams.set('city', city);
@@ -199,7 +175,6 @@
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '请求失败');
-
       setSummary(`「${data.query.city}」的${data.query.category === '全部' ? '' : data.query.category + '类'}特色菜，共 ${data.specialties.length} 道`, data);
       renderSpecialties(data.specialties);
       resultSection.hidden = false;
@@ -209,7 +184,6 @@
       showError(e.message);
     }
   }
-
   function renderSpecialties(list) {
     const root = resultPanels.specialty;
     root.innerHTML = '';
@@ -253,9 +227,7 @@
       root.appendChild(card);
     });
   }
-
   // ---------- Tab 2: 餐厅 ----------
-
   async function submitRestaurant(evt) {
     evt.preventDefault();
     clearError();
@@ -270,11 +242,9 @@
     const openNow = document.getElementById('open-now').checked;
     const sort = document.getElementById('restaurant-sort').value;
     const cuisines = selectedCuisineNames();
-
     setTab('restaurant');
     resultSection.hidden = true;
     llmLoading('加载中…');
-
     try {
       const url = new URL('/api/food/restaurants', location.origin);
       url.searchParams.set('city', city);
@@ -285,11 +255,9 @@
       url.searchParams.set('openNow', String(openNow));
       url.searchParams.set('sort', sort);
       url.searchParams.set('source', sourceSelect.value);
-
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '请求失败');
-
       const cuisineText = cuisines.length ? cuisines.join(' / ') : '不限';
       const slotText = slot ? `· ${slot}` : '';
       const openText = openNow ? '· 营业中' : '';
@@ -302,7 +270,6 @@
       showError(e.message);
     }
   }
-
   function renderRestaurants(list) {
     const root = resultPanels.restaurant;
     root.innerHTML = '';
@@ -313,13 +280,9 @@
       return;
     }
     list.forEach((r, i) => {
-      const card = document.createElement('article');
-      card.className = 'card sight-card';
-      card.innerHTML = restaurantCard(r, i);
-      root.appendChild(card);
+      root.insertAdjacentHTML('beforeend', restaurantCard(r, i));
     });
   }
-
   /** 餐厅卡（与景点/酒店卡片同构）：编号 + 名称/菜系/评分/营业 + 招牌菜 + 营业/地址 + 人均参考价 */
   function restaurantCard(r, i) {
     // 接口返回的餐厅对象不含 city 字段，用当前查询城市作为归属地
@@ -368,9 +331,7 @@
         </div>
       </article>`;
   }
-
   // ---------- Tab 3: 个性化 ----------
-
   async function submitPersonalize(evt) {
     evt.preventDefault();
     clearError();
@@ -380,11 +341,9 @@
     if (query.length < 4) {
       return showError('需求描述太短（至少 4 个字），补充一些偏好让我们更懂你');
     }
-
     setTab('personalize');
     resultSection.hidden = true;
     llmLoading('分析中…');
-
     try {
       const res = await fetch('/api/food/personalize', {
         method: 'POST',
@@ -393,7 +352,6 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '请求失败');
-
       setSummary(`「${data.query.city}」· 你的描述：「${data.query.raw}」`, data);
       renderPersonalize(data);
       resultSection.hidden = false;
@@ -403,7 +361,6 @@
       showError(e.message);
     }
   }
-
   function renderPersonalize(data) {
     // 解析出的关键词
     parsedChips.innerHTML = '';
@@ -419,14 +376,12 @@
     } else {
       parsedChips.hidden = true;
     }
-
     if (data.hint) {
       personalizeHint.textContent = data.hint;
       personalizeHint.hidden = false;
     } else {
       personalizeHint.hidden = true;
     }
-
     const list = data.recommendations || [];
     personalizeList.innerHTML = '';
     if (!list.length) {
@@ -435,44 +390,36 @@
     }
     list.forEach((rec, idx) => {
       const r = rec.restaurant;
-      const card = document.createElement('article');
-      card.className = 'card sight-card restaurant-card recommendation-card';
       // 复用餐厅卡结构；推荐理由替换招牌菜行（无招牌菜则插到营业信息前），侧边加匹配指数
-      let html = restaurantCard(r, idx);
+      let html = restaurantCard(r, idx).replace('<article class="card sight-card restaurant-card"', '<article class="card sight-card restaurant-card recommendation-card"');
       if (html.includes('<p class="sight-desc">')) {
         html = html.replace(/<p class="sight-desc">[\s\S]*?<\/p>/, `<p class="sight-desc">${escapeHtml(rec.reason)}</p>`);
       } else {
         html = html.replace('<div class="sight-meta">', `<p class="sight-desc">${escapeHtml(rec.reason)}</p><div class="sight-meta">`);
       }
-      card.innerHTML = html.replace(
+      html = html.replace(
         '<div class="card-side sight-side">',
         `<div class="card-side sight-side"><div class="sight-score"><em>${rec.score}</em><span>匹配指数</span></div>`
       );
-      personalizeList.appendChild(card);
+      personalizeList.insertAdjacentHTML('beforeend', html);
     });
   }
-
   // ---------- 事件绑定 ----------
-
   tabs.forEach((t) => {
     t.addEventListener('click', () => setTab(t.dataset.tab));
   });
-
   cityClear.addEventListener('click', () => {
     cityInput.value = '';
     updateCityClear();
     cityInput.focus();
     clearError();
   });
-
   cityInput.addEventListener('input', updateCityClear);
-
   if (sourceSelect) {
     sourceSelect.addEventListener('change', updateSourceHint);
     updateSourceHint();
     updateSourceOptions();
   }
-
   function updateCityClear() {
     if (!cityClear) return;
     if (cityInput.value.trim()) {
@@ -481,13 +428,10 @@
       cityClear.hidden = true;
     }
   }
-
   formSpecialty.addEventListener('submit', submitSpecialty);
   formRestaurant.addEventListener('submit', submitRestaurant);
   formPersonalize.addEventListener('submit', submitPersonalize);
-
   // ---------- 初始化 ----------
-
   // 快捷城市芯片：填入城市并按当前 tab 自动查询（个性化 tab 需先补需求描述）
   function bindQuickChips() {
     const wrap = document.querySelector('.quick-chips');
@@ -505,11 +449,9 @@
     });
   }
   bindQuickChips();
-
   // 全局目的地上下文：自动预填城市并跑一次默认查询（Task 3）
   function bindTripContext() {
     if (!window.Cart) return;
-
     // 用户手动改城市时，若篮中已有其他城市的条目，先确认再放行
     let lastCity = cityInput.value.trim();
     cityInput.addEventListener('change', () => {
@@ -521,7 +463,6 @@
       }
       lastCity = next;
     });
-
     // 预填后自动查询「特色菜品」（默认 tab），省去用户点搜索
     Cart.prefillCity('city-input', () => {
       updateCityClear();
@@ -530,7 +471,6 @@
     });
   }
   bindTripContext();
-
   loadCities();
   loadCuisines();
   setTab('specialty');
