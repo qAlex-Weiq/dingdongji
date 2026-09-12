@@ -46,10 +46,43 @@ async function llmCall(messages, maxTokens = 300) {
 }
 
 // ---------------------------------------------------------------------------
+// 同行人画像 —— 影响每日文案的语气与节奏描述
+// ---------------------------------------------------------------------------
+
+/**
+ * 四种同行人画像。
+ *
+ * 注意：这里只影响 LLM 撰写的导览文案（语气/节奏描述），
+ * 不改变确定性编排结构 —— 结构仍由 itinerary.js 全权决定，保持可审计。
+ */
+const COMPANION_PROFILES = {
+  solo: {
+    label: '独自出发',
+    guidance: '同行人是独自旅行者，强调灵活高效的节奏与在地文化沉浸，可提及独处时的观察与随性调整。',
+  },
+  couple: {
+    label: '情侣出游',
+    guidance: '同行人是情侣，突出风景步道、浪漫观景点、咖啡馆与傍晚夜景，语气温柔有氛围感。',
+  },
+  family: {
+    label: '亲子带娃',
+    guidance: '同行人是带孩子的家庭，强调公园、科技馆、动物园等亲子友好场所，节奏宽松不赶场，午餐准时，提醒照顾孩子体力。',
+  },
+  parents: {
+    label: '孝敬父母',
+    guidance: '同行人是长辈父母，节奏舒缓（每天不超过 2 个主要景点），避免陡峭爬升与深夜行程，强调舒适的用餐与休息安排。',
+  },
+};
+
+function getCompanionProfile(companion) {
+  return COMPANION_PROFILES[companion] || COMPANION_PROFILES.couple;
+}
+
+// ---------------------------------------------------------------------------
 // 每日 summary 提示词
 // ---------------------------------------------------------------------------
 
-function buildDayPrompt(day, city) {
+function buildDayPrompt(day, city, companion) {
   const sightNames = day.slots
     .filter((s) => s.type === 'sight')
     .map((s) => s.item?.name)
@@ -59,6 +92,7 @@ function buildDayPrompt(day, city) {
     .map((s) => s.item?.name)
     .filter(Boolean);
   const district = day.district || city;
+  const profile = getCompanionProfile(companion);
 
   const parts = [];
   if (sightNames.length) parts.push(`游览：${sightNames.join('、')}`);
@@ -72,6 +106,7 @@ function buildDayPrompt(day, city) {
       content:
         `你是一名资深${city}旅行向导，用轻松自然的中文（2-3句话）写 Day ${day.day} 导览简介。` +
         `今天在${district}，${parts.join('，')}。` +
+        `${profile.guidance}` +
         `语气亲切，突出亮点与节奏，不要用「首先/其次/最后」等程式化词语，不要重复景点列表。`,
     },
   ];
@@ -88,7 +123,7 @@ function buildDayPrompt(day, city) {
  * @returns {Promise<object>} 与 /api/plan 直接序列化为响应的对象
  */
 async function plan(input) {
-  const { city, days, startDate, items, autoFill = true } = input;
+  const { city, days, startDate, items, autoFill = true, companion = 'couple' } = input;
   const steps = [];
   const t0 = Date.now();
 
@@ -119,11 +154,12 @@ async function plan(input) {
   tick('编排时段与配餐', slotSummary);
 
   // ── Step 3: 并行 LLM 文案 ──────────────────────────────────────────────
-  tick('Agent 生成每日说明', `${days} 天并行调用`);
+  const profile = getCompanionProfile(companion);
+  tick('Agent 生成每日说明', `${days} 天并行调用 · ${profile.label}`);
 
   const summaries = await Promise.all(
     itinerary.map((day) =>
-      llmCall(buildDayPrompt(day, city))
+      llmCall(buildDayPrompt(day, city, companion))
         .then((text) => text)
         .catch(() => `${city} Day ${day.day}，${day.district}片区，期待精彩旅程。`)
     )

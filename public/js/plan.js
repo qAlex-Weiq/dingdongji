@@ -32,10 +32,17 @@
     agentModel: $('#agent-model'),
     warnings: $('#plan-warnings'),
     warningsList: $('#warnings-list'),
+    tipsTraps: $('#tips-traps'),
+    tipsTrapsList: $('#tips-traps-list'),
+    tipsGear: $('#tips-gear'),
+    tipsGearList: $('#tips-gear-list'),
+    aiAdjustments: $('#ai-adjustments'),
+    aiAdjustmentsCount: $('#ai-adjustments-count'),
     timelineSection: $('#timeline-section'),
     timelineTitle: $('#timeline-title'),
     timeline: $('#timeline'),
     regenBtn: $('#regen-btn'),
+    copyWechatBtn: $('#btn-copy-wechat'),
     toast: $('#toast'),
     // 一键智能规划
     apFrom: $('#ap-from'),
@@ -43,7 +50,8 @@
     apDate: $('#ap-date'),
     apDays: $('#ap-days'),
     apCityList: $('#ap-city-list'),
-    apTierPills: document.querySelectorAll('#auto-plan .pill'),
+    apTierPills: document.querySelectorAll('#auto-plan .auto-plan-tier .pill'),
+    apCompanionPills: document.querySelectorAll('#auto-plan .auto-plan-companion .pill'),
     apHint: $('#ap-hint'),
     apGenerate: $('#ap-generate'),
   };
@@ -54,6 +62,7 @@
     generating: false,   // /api/plan 调用中
     lastPlan: null,
     tier: 'comfort',
+    companion: 'couple',
     dismissed: new Set(),   // 用户已移除的 AI 建议（名称集合）
   };
 
@@ -118,6 +127,7 @@
     els.daysPlus.addEventListener('click', () => setDays(state.days + 1));
     els.generateBtn.addEventListener('click', generate);
     els.regenBtn.addEventListener('click', generate);
+    els.copyWechatBtn && els.copyWechatBtn.addEventListener('click', copyWechatNote);
 
     // 事件委托：必去 / 移除 / AI建议采纳 / AI建议移除
     els.basketGroups.addEventListener('click', (e) => {
@@ -217,12 +227,133 @@
     }
   }
 
+  // ── 城市避坑与贴士知识库 ────────────────────────────────────────────────
+
+  const CITY_TIPS = {
+    广州: {
+      traps: [
+        '广东省博物馆、广州博物馆均需提前在微信小程序实名预约，现场无法购票',
+        '广州塔建议 18:00 后登塔，可同时欣赏日落与珠江夜景，日间人流较大',
+        '陈家祠旺季需在官方公众号提前预约，闭馆日为周一',
+      ],
+      gear: [
+        '广州全年湿热多雨，建议随身携带折叠晴雨伞与防滑平底鞋',
+        '地铁覆盖全面，景区间建议优先乘坐地铁，避开早晚高峰（7-9点 / 17-19点）',
+      ],
+    },
+    成都: {
+      traps: [
+        '成都大熊猫繁育研究基地须提前在官方 App 或微信预约，旺季建议提前 3 天购票',
+        '宽窄巷子无需门票，但内部餐饮消费较高；建议提前锁定心仪餐厅排号',
+        '都江堰 + 青城山可联票购买，仅售线上，现场票价更高',
+      ],
+      gear: [
+        '成都盆地气候多云潮湿，防晒需求低但需备轻薄雨衣或折叠伞',
+        '火锅与串串偏油辣，肠胃敏感建议自备肠胃药',
+      ],
+    },
+    北京: {
+      traps: [
+        '故宫须至少提前 7 天在"故宫博物院"官方小程序实名预约，旺季常常秒空',
+        '颐和园、天坛等热门景点建议工作日前往，周末人流可达 5 万+',
+        '长城（慕田峪 / 八达岭）建议优先慕田峪，人少且景色更原始；缆车需单独购票',
+      ],
+      gear: [
+        '北京四季分明，春秋风大，建议备一件防风外套',
+        '地铁高峰期极拥挤，景区间推荐打车或包车，节省体力',
+      ],
+    },
+    上海: {
+      traps: [
+        '外滩夜景最佳观赏时间为 19:30-21:00，无需门票，但防范扒手',
+        '豫园门票需线上预购，旺季周边商城人流极大，建议安排工作日游览',
+        '迪士尼须提前在 App 购票并抢"灵境优先体验券"，热门项目候场 90 分钟以上',
+      ],
+      gear: [
+        '上海梅雨季（6-7 月）潮湿多雨，建议携带防水外套',
+        '出行以地铁为主，打车高峰期等待较久，可提前 15 分钟叫车',
+      ],
+    },
+    杭州: {
+      traps: [
+        '西湖景区免费，但断桥、雷峰塔等核心景点旺季人流大，建议 7:00 前入园',
+        '灵隐寺需单独购票（飞来峰与寺院分开计费），善男信女多，建议非高香期前往',
+        '西溪湿地船票须在园区内购买，建议上午抵达提前排队',
+      ],
+      gear: [
+        '杭州春季（3-4 月）踏青旺季，气温多变，早晚需备一件薄外套',
+        '共享单车骑行西湖一圈约 2 小时，强烈推荐，优于打车',
+      ],
+    },
+    深圳: {
+      traps: [
+        '深圳博物馆、科技馆等国有场馆免费但需预约，周末名额通常周四放出即抢空',
+        '华强北电子市场建议工作日前往，周末人多且商户态度欠佳',
+        '大小梅沙泳滩旺季须实名预约限流，泳衣入场，无缘由禁止携带自带食物',
+      ],
+      gear: [
+        '深圳全年气温偏高，防晒霜与遮阳帽是必备装备',
+        '地铁便捷且覆盖全市，建议办一张深圳通卡享受九折优惠',
+      ],
+    },
+    西安: {
+      traps: [
+        '兵马俑须在官方小程序提前预约，旺季（五一/国庆）须提前 7 天；建议选工作日',
+        '城墙骑自行车需另付租车费，旺季下午 16 点后人流明显减少',
+        '回民街饮食价格偏高，建议避开正餐时间前往，夜市更热闹',
+      ],
+      gear: [
+        '西安冬季寒冷干燥，建议备好护唇膏与保湿霜；夏季酷热，防晒必备',
+        '景区间距离较远，建议租车或包车游览，公交换乘耗时',
+      ],
+    },
+    重庆: {
+      traps: [
+        '洪崖洞夜景最佳拍摄点在千厮门大桥上，无需门票；景区内消费较高',
+        '磁器口古镇建议工作日上午前往，旺季下午人流极为拥挤',
+        '长江索道须提前在"重庆轨道交通"App 购票，现场排队候场 1 小时以上',
+      ],
+      gear: [
+        '重庆多山多坡，建议穿低跟防滑鞋，避免高跟鞋与人字拖',
+        '重庆夏季气温高达 40°C，建议备好防暑药与冰凉贴',
+      ],
+    },
+  };
+
+  const CITY_TIPS_FALLBACK = (city) => ({
+    traps: [
+      `${city}热门景区建议提前通过官方公众号或小程序实名预约，现场排队时间较长`,
+      `参观博物馆、古迹类景点请提前确认开闭馆日期（通常周一闭馆）及入场规则`,
+      `旺季（五一/暑期/国庆）建议工作日前往，景区人流可能是周末的 3 倍以上`,
+    ],
+    gear: [
+      `出发前查询目的地近期天气，备好折叠雨伞与适合步行的舒适鞋`,
+      `优先使用地铁/公共交通，高峰时段提前叫车避免候车过久`,
+    ],
+  });
+
+  function getCityTips(city) {
+    if (!city) return CITY_TIPS_FALLBACK('目的地');
+    // 模糊匹配：城市名可能含「市」字
+    const key = Object.keys(CITY_TIPS).find(
+      (k) => city.includes(k) || k.includes(city.replace(/市$/, ''))
+    );
+    return key ? CITY_TIPS[key] : CITY_TIPS_FALLBACK(city);
+  }
+
+  const COMPANION_LABEL = {
+    solo: '🚶 独自出发',
+    couple: '👫 情侣出游',
+    family: '👨‍👩‍👧 亲子带娃',
+    parents: '👵 孝敬父母',
+  };
+
   // ── 一键智能规划（Task 4）──────────────────────────────────────────────
 
   function bindAutoPlan() {
     if (!els.apGenerate) return;
 
-    // 偏好药丸：单选
+    // 预算偏好药丸：单选
     els.apTierPills.forEach((pill) => {
       pill.addEventListener('click', () => {
         els.apTierPills.forEach((p) => {
@@ -231,6 +362,18 @@
           p.setAttribute('aria-checked', on ? 'true' : 'false');
         });
         state.tier = pill.dataset.tier || 'comfort';
+      });
+    });
+
+    // 同行人药丸：单选
+    els.apCompanionPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        els.apCompanionPills.forEach((p) => {
+          const on = p === pill;
+          p.classList.toggle('is-active', on);
+          p.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        state.companion = pill.dataset.companion || 'couple';
       });
     });
 
@@ -569,6 +712,7 @@
           days: state.days,
           startDate: els.startDate.value || null,
           items: data.items,
+          companion: state.companion,
         }),
       });
 
@@ -577,7 +721,7 @@
 
       state.lastPlan = body;
       renderAgentSteps(body.agent);
-      renderWarnings(body.warnings);
+      renderTipsCard(body);
       renderTimeline(body);
       els.timelineSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
@@ -615,15 +759,170 @@
     els.agentSteps.appendChild(li);
   }
 
-  // ── 警告渲染 ────────────────────────────────────────────────────────────
+  // ── 行前小贴士与避坑指南（Task 3）──────────────────────────────────────
 
-  function renderWarnings(warnings) {
-    if (!warnings || warnings.length === 0) {
-      els.warnings.hidden = true;
+  /**
+   * 渲染贴士卡片。
+   *
+   * 卡片主体是城市化的「避坑 / 装备」建议（来自本地知识库，瞬时可用）；
+   * 服务端返回的 warnings 属于编排算法日志（如「抵达时间 18:02，Day1 已减少安排」），
+   * 对普通用户价值低，因此收进默认折叠的 <details> 里。
+   */
+  function renderTipsCard(plan) {
+    const city = plan?.city || '';
+    const tips = getCityTips(city);
+
+    els.tipsTrapsList.innerHTML = tips.traps.map((t) => `<li>${esc(t)}</li>`).join('');
+    els.tipsGearList.innerHTML = tips.gear.map((t) => `<li>${esc(t)}</li>`).join('');
+
+    // 技术性编排日志：折叠收纳
+    const warnings = (plan?.warnings || []).filter(Boolean);
+    if (warnings.length) {
+      els.warningsList.innerHTML = warnings.map((w) => `<li>${esc(w)}</li>`).join('');
+      els.aiAdjustmentsCount.textContent = `(${warnings.length} 项)`;
+      els.aiAdjustments.hidden = false;
+      els.aiAdjustments.open = false;
+    } else {
+      els.warningsList.innerHTML = '';
+      els.aiAdjustments.hidden = true;
+    }
+
+    els.warnings.hidden = false;
+  }
+
+  // ── 微信行程便签导出（Task 2）──────────────────────────────────────────
+
+  /** 汇总当前行程的预估人均花费 */
+  function estimateBudget(plan) {
+    let total = 0;
+    (plan.itinerary || []).forEach((day) => {
+      (day.slots || []).forEach((slot) => {
+        // 已被用户移除的 AI 建议不计入
+        if (slot.suggested && state.dismissed.has(slot.item?.name)) return;
+        const item = slot.item || {};
+        if (slot.type === 'food' && item.avgPrice) {
+          total += Number(item.avgPrice) || 0;
+        } else if (slot.type === 'hotel' && item.price) {
+          total += Number(item.price) || 0;
+        } else if (slot.type === 'sight') {
+          // 门票形如「¥60」「免费」
+          const m = String(item.ticket || '').match(/(\d+)/);
+          if (m) total += Number(m[1]) || 0;
+        } else if (slot.type === 'ticket') {
+          const p = priceOf(item);
+          if (Number.isFinite(p)) total += p;
+        }
+      });
+    });
+    return Math.round(total);
+  }
+
+  /** 把当前行程格式化成适合微信粘贴的纯文本便签 */
+  function buildWechatText(plan) {
+    const tier = TIER_CONFIG[state.tier] || TIER_CONFIG.comfort;
+    const companion = COMPANION_LABEL[state.companion] || COMPANION_LABEL.couple;
+    const tips = getCityTips(plan.city);
+    const divider = '=================================';
+    const lines = [];
+
+    lines.push(`✈️ 订懂机 · ${plan.city}${plan.days}日定制行程`);
+    lines.push(`👥 出行偏好：${companion} · ${tier.label}`);
+    const budget = estimateBudget(plan);
+    if (budget > 0) lines.push(`💰 预估总花费：¥${budget} / 人均`);
+    lines.push(divider);
+
+    (plan.itinerary || []).forEach((day) => {
+      const dateStr = day.date ? formatDate(day.date) : '';
+      const head = [`📅 Day ${day.day}`];
+      if (dateStr) head.push(`(${dateStr})`);
+      if (day.district) head.push(day.district);
+      lines.push(head.join(' '));
+
+      (day.slots || []).forEach((slot) => {
+        if (slot.suggested && state.dismissed.has(slot.item?.name)) return;
+        const item = slot.item || {};
+        const name = displayName(item);
+        if (!name) return;
+        const bits = [`• ${slot.time || ''} ${slot.slot || ''}：${name}`.replace(/\s+/g, ' ').trim()];
+        // 括号里放最有用的一条信息：门票 / 人均 / 房价
+        let tip = '';
+        if (slot.type === 'sight' && item.ticket && item.ticket !== '以现场公示为准') tip = item.ticket;
+        else if (slot.type === 'food' && item.avgPrice) tip = `人均 ¥${item.avgPrice}`;
+        else if (slot.type === 'hotel' && item.price) tip = `¥${item.price}/晚`;
+        else if (slot.type === 'ticket' && item.depTime) tip = `${item.depTime} → ${item.arrTime || ''}`.trim();
+        if (tip) bits.push(`(${tip})`);
+        lines.push(bits.join(' '));
+      });
+      lines.push('');
+    });
+
+    // 去掉最后一个多余空行后再加分隔符
+    while (lines[lines.length - 1] === '') lines.pop();
+    lines.push(divider);
+    lines.push('💡 订懂机 · 行前避坑与实用贴士');
+    lines.push('🛡️ 预约与避坑提示：');
+    tips.traps.forEach((t) => lines.push(`• ${t}`));
+    lines.push('');
+    lines.push('🎒 行前装备与备忘：');
+    tips.gear.forEach((t) => lines.push(`• ${t}`));
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 写入剪贴板。
+   * navigator.clipboard 在非 HTTPS / 部分 WebView（含微信内置浏览器）下不可用，
+   * 因此保留 execCommand('copy') 兜底 —— 演示环境常走 http://localhost。
+   */
+  async function copyToClipboard(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch { /* 落到兜底方案 */ }
+
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);   // iOS Safari 需要显式设置选区
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  let copyResetTimer = null;
+  async function copyWechatNote() {
+    const plan = state.lastPlan;
+    if (!plan) return toast('请先生成行程');
+
+    const text = buildWechatText(plan);
+    const ok = await copyToClipboard(text);
+    const btn = els.copyWechatBtn;
+
+    if (!ok) {
+      toast('复制失败，请手动选择行程内容复制');
       return;
     }
-    els.warningsList.innerHTML = warnings.map((w) => `<li>${esc(w)}</li>`).join('');
-    els.warnings.hidden = false;
+
+    btn.textContent = '✓ 已复制！';
+    btn.classList.add('is-copied');
+    clearTimeout(copyResetTimer);
+    copyResetTimer = setTimeout(() => {
+      btn.textContent = '📋 复制微信行程便签';
+      btn.classList.remove('is-copied');
+    }, 2000);
+
+    toast('✓ 行程单及避坑贴士已复制，直接去微信粘贴发给好友！');
   }
 
   // ── 时间轴渲染 ──────────────────────────────────────────────────────────

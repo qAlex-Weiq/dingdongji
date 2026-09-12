@@ -79,6 +79,16 @@
         </div>
       </div>
 
+      <div class="field auto-plan-companion">
+        <label id="ap-companion-label">同行人</label>
+        <div class="pill-group" role="radiogroup" aria-labelledby="ap-companion-label">
+          <button type="button" class="pill" role="radio" aria-checked="false" data-companion="solo">🚶 独自出发</button>
+          <button type="button" class="pill is-active" role="radio" aria-checked="true" data-companion="couple">👫 情侣出游</button>
+          <button type="button" class="pill" role="radio" aria-checked="false" data-companion="family">👨‍👩‍👧 亲子带娃</button>
+          <button type="button" class="pill" role="radio" aria-checked="false" data-companion="parents">👵 孝敬父母</button>
+        </div>
+      </div>
+
       <div class="auto-plan-actions">
         <span class="plan-hint" id="ap-hint"></span>
         <button type="button" class="search-btn" id="ap-generate">🚀 一键生成全套行程</button>
@@ -134,16 +144,40 @@
       <ol class="agent-steps" id="agent-steps"></ol>
     </section>
 
-    <!-- ③ 提示 -->
-    <section class="plan-warnings" id="plan-warnings" hidden>
-      <ul id="warnings-list"></ul>
+    <!-- ③ 行前小贴士与避坑指南 -->
+    <section class="tips-card" id="plan-warnings" hidden>
+      <div class="tips-card-header">
+        <span class="tips-card-icon">💡</span>
+        <h2 class="tips-card-title">行前小贴士与避坑指南</h2>
+      </div>
+      <div class="tips-sections">
+        <div class="tips-section" id="tips-traps">
+          <div class="tips-section-head"><span class="tips-section-icon">🛡️</span>避坑与预约提示</div>
+          <ul class="tips-list" id="tips-traps-list"></ul>
+        </div>
+        <div class="tips-section" id="tips-gear">
+          <div class="tips-section-head"><span class="tips-section-icon">🎒</span>出行装备与天气备忘</div>
+          <ul class="tips-list" id="tips-gear-list"></ul>
+        </div>
+      </div>
+      <details class="ai-adjustments" id="ai-adjustments">
+        <summary class="ai-adjustments-toggle" id="ai-adjustments-toggle">
+          <span class="ai-adjustments-arrow">▸</span>
+          查看 AI 编排调整细节
+          <span class="ai-adjustments-count" id="ai-adjustments-count"></span>
+        </summary>
+        <ul class="ai-adjustments-list" id="warnings-list"></ul>
+      </details>
     </section>
 
     <!-- ④ 时间轴 -->
     <section class="result-section" id="timeline-section" hidden>
       <div class="plan-head">
         <h2 class="plan-title" id="timeline-title">行程安排</h2>
-        <button type="button" class="btn-ghost" id="regen-btn">重新生成</button>
+        <div class="plan-head-actions">
+          <button type="button" class="btn-secondary" id="btn-copy-wechat">📋 复制微信行程便签</button>
+          <button type="button" class="btn-ghost" id="regen-btn">重新生成</button>
+        </div>
       </div>
       <div id="timeline"></div>
     </section>
