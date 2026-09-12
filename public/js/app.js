@@ -68,14 +68,15 @@
     bindFilterGroups();
     bindQuickChips();
 
-    // 事件委托：卡片上的“选择”按钮 / 空态清除筛选
+    // 事件委托：卡片上的”选择”按钮 / 空态清除筛选
     document.addEventListener('click', (e) => {
-      if (e.target.closest('[data-action="clear-filters"]')) {
+      if (e.target.closest('[data-action=”clear-filters”]')) {
         resetFilters();
         return;
       }
-      if (e.target.closest('[data-action="select"]')) {
-        showToast('演示环境：预订功能尚未接入真实渠道');
+      const selectBtn = e.target.closest('[data-action=”select”]');
+      if (selectBtn) {
+        handleSelectTicket(selectBtn);
       }
     });
   }
@@ -241,7 +242,7 @@
         <div class="card-side">
           <div class="price"><em>¥</em>${f.price}</div>
           <div class="price-meta">经济舱 · ${esc(f.discountLabel)}</div>
-          <button class="select-btn" type="button" data-action="select">选择</button>
+          ${selectBtnHtml(f)}
         </div>
       </article>`;
   }
@@ -286,7 +287,7 @@
         </div>
         <div class="card-side">
           <div class="price"><em>¥</em>${minPrice}<span class="price-from">起</span></div>
-          <button class="select-btn" type="button" data-action="select">选择</button>
+          ${selectBtnHtml(t)}
         </div>
       </article>`;
   }
@@ -434,6 +435,118 @@
     if (Number.isNaN(d.getTime())) return dateStr;
     const wd = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
     return `${d.getMonth() + 1}月${d.getDate()}日（周${wd}）`;
+  }
+
+  // ---------- 车票选择 → 行程绑定 ----------
+
+  const TRANSPORT_KEY = 'ddj.selectedTransport.v1';
+
+  function handleSelectTicket(btn) {
+    const card = btn.closest('.ticket-card');
+    if (!card) return;
+
+    // 解析选中班次数据
+    const isFlight = card.classList.contains('flight-ticket');
+    let transport;
+
+    if (isFlight) {
+      const carrier = card.querySelector('.carrier')?.textContent.trim() || '';
+      const code    = card.querySelector('.code')?.textContent.trim() || '';
+      const times   = card.querySelectorAll('.node-time');
+      const places  = card.querySelectorAll('.node-place');
+      const depTime = times[0]?.textContent.replace(/\+\d天/, '').trim() || '';
+      const arrTime = times[1]?.textContent.replace(/\+\d天/, '').trim() || '';
+      const depCity = places[0]?.textContent.trim() || '';
+      const arrCity = places[1]?.textContent.trim() || '';
+      const priceRaw = card.querySelector('.price')?.textContent.replace(/[^0-9]/g, '') || '0';
+      const cabin   = card.querySelector('.price-meta')?.textContent.split('·')[0].trim() || '经济舱';
+      transport = {
+        type: 'flight',
+        carrier,
+        flightNo: code,
+        depCity,
+        arrCity,
+        depTime,
+        arrTime,
+        price: Number(priceRaw),
+        cabin,
+      };
+    } else {
+      // 火车票
+      const trainNo   = card.querySelector('.carrier')?.textContent.trim() || '';
+      const times     = card.querySelectorAll('.node-time');
+      const places    = card.querySelectorAll('.node-place');
+      const depTime   = times[0]?.textContent.replace(/\+\d天/, '').trim() || '';
+      const arrTime   = times[1]?.textContent.replace(/\+\d天/, '').trim() || '';
+      const depCity   = places[0]?.textContent.trim() || '';
+      const arrCity   = places[1]?.textContent.trim() || '';
+      const priceRaw  = card.querySelector('.price')?.textContent.replace(/[^0-9]/g, '') || '0';
+      transport = {
+        type: 'train',
+        carrier: trainNo,
+        flightNo: null,
+        depCity,
+        arrCity,
+        depTime,
+        arrTime,
+        price: Number(priceRaw),
+        cabin: null,
+      };
+    }
+
+    // 取消其他已选状态
+    document.querySelectorAll('.select-btn.is-selected').forEach((b) => {
+      b.classList.remove('is-selected');
+      b.textContent = '选择';
+      b.removeAttribute('aria-pressed');
+    });
+
+    // 切换当前按钮
+    const alreadySelected = btn.classList.contains('is-selected');
+    if (alreadySelected) {
+      btn.classList.remove('is-selected');
+      btn.textContent = '选择';
+      btn.removeAttribute('aria-pressed');
+      try { localStorage.removeItem(TRANSPORT_KEY); } catch { /* ignore */ }
+      showToast('已取消选定班次');
+    } else {
+      btn.classList.add('is-selected');
+      btn.textContent = '✓ 已选定';
+      btn.setAttribute('aria-pressed', 'true');
+      try { localStorage.setItem(TRANSPORT_KEY, JSON.stringify(transport)); } catch { /* ignore */ }
+      showToast('✓ 已选定该班次，已自动同步至「行程规划」！');
+    }
+  }
+
+  /** 读取已选定的班次（跨页面共享，plan.html 会消费） */
+  function readSelectedTransport() {
+    try {
+      const raw = localStorage.getItem(TRANSPORT_KEY);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      return d && typeof d === 'object' ? d : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 当前卡片是否为已选定班次。
+   * 用车次/航班号 + 出发时刻做匹配 —— 同一车次同一时刻在一次查询里唯一。
+   */
+  function isSelectedTicket(item) {
+    const sel = readSelectedTransport();
+    if (!sel) return false;
+    const code = item.flightNo || item.trainNo || '';
+    const selCode = sel.flightNo || sel.carrier || '';
+    return String(code) === String(selCode) && String(item.depTime || '') === String(sel.depTime || '');
+  }
+
+  /** 选择按钮 HTML（保持重渲染后的选定态） */
+  function selectBtnHtml(item) {
+    const on = isSelectedTicket(item);
+    return `<button class="select-btn${on ? ' is-selected' : ''}" type="button" data-action="select"` +
+      `${on ? ' aria-pressed="true"' : ''}>${on ? '✓ 已选定' : '选择'}</button>`;
   }
 
   let toastTimer = null;

@@ -25,7 +25,7 @@
 
   const state = {
     sort: 'score',  // 'score' | 'rating' | 'popularity' | 'priceAsc' | 'priceDesc'
-    source: 'auto', // 'auto' | 'local' | 'llm'
+    source: 'local', // 'local' | 'llm'
     tier: 'any',    // 'any' | 'budget' | 'comfort' | 'upscale' | 'luxury'
     location: 'any', // 'any' | 'downtown' | 'station' | 'airport' | 'scenic'
     data: null,     // { city, source, sourceLabel, count, hotels }

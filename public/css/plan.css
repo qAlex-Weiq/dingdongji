@@ -883,3 +883,76 @@
   .ambient-plan { height: 120px; }
   .ambient-caption { font-size: 11.5px; letter-spacing: 2px; white-space: normal; width: 90%; text-align: center; }
 }
+
+/* ── 已选班次绑定横幅 ─────────────────────────────────────────────────────── */
+
+.transport-bind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 0 0 12px;
+  border-radius: 10px;
+  background: var(--primary-soft, rgba(29,79,145,.08));
+  border: 1.5px solid var(--primary-soft, rgba(29,79,145,.18));
+  font-size: 13.5px;
+  flex-wrap: wrap;
+}
+
+.transport-bind-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.transport-bind-text {
+  flex: 1;
+  color: var(--text, #1a1a1a);
+  min-width: 0;
+}
+
+.transport-bind-text b {
+  color: var(--primary, #1d4f91);
+  font-weight: 700;
+}
+
+.transport-bind-text i {
+  color: var(--text-muted, #666);
+  font-style: normal;
+  font-size: 12.5px;
+}
+
+.transport-bind-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.transport-bind-btn {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid var(--primary-soft, rgba(29,79,145,.22));
+  background: transparent;
+  color: var(--primary, #1d4f91);
+  transition: background 120ms, border-color 120ms;
+}
+
+.transport-bind-btn:hover {
+  background: rgba(29,79,145,.10);
+}
+
+.transport-bind-btn.is-clear {
+  border-color: rgba(180,40,20,.22);
+  color: #b32818;
+}
+
+.transport-bind-btn.is-clear:hover {
+  background: rgba(180,40,20,.08);
+}
+
+@media (max-width: 600px) {
+  .transport-bind { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .transport-bind-actions { align-self: flex-end; }
+}

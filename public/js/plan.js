@@ -62,7 +62,7 @@
     generating: false,   // /api/plan 调用中
     lastPlan: null,
     tier: 'comfort',
-    companion: 'couple',
+    companion: 'solo',
     dismissed: new Set(),   // 用户已移除的 AI 建议（名称集合）
   };
 
@@ -97,6 +97,7 @@
     bindAutoPlan();
     prefillDate();
     Cart.subscribe(() => renderBasket());
+    applySelectedTransport();   // ← 车票绑定
 
     // 一键规划：从全局上下文预填目的地
     const ctx = Cart.ctx();
@@ -347,6 +348,227 @@
     family: '👨‍👩‍👧 亲子带娃',
     parents: '👵 孝敬父母',
   };
+
+  // ── 已选班次绑定（车票 → 行程）────────────────────────────────────────────
+
+  /**
+   * 车票页「选择」写入的班次，在本页消费。
+   *
+   * 与行程篮分开存储：行程篮是「想去哪些地方」，班次是「怎么到」——
+   * 班次决定 Day 1 的起始时刻，因此需要在渲染时对 Day 1 做二次编排。
+   * state.lastPlan 始终保持服务端原样，班次相关的裁剪只在渲染时套用，
+   * 这样「清除班次」可以直接用原始 plan 重绘，不会污染其它天。
+   */
+  const TRANSPORT_KEY = 'ddj.selectedTransport.v1';
+
+  /** 抵达时刻分界：11:30 / 17:30 */
+  const ARR_EARLY_MIN = 11 * 60 + 30;
+  const ARR_LATE_MIN = 17 * 60 + 30;
+
+  function readTransport() {
+    try {
+      const raw = localStorage.getItem(TRANSPORT_KEY);
+      if (!raw) return null;
+      const t = JSON.parse(raw);
+      if (!t || typeof t !== 'object') return null;
+      if (!t.arrTime && !t.depTime) return null;   // 结构不完整视为无效
+      return t;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearTransport() {
+    try { localStorage.removeItem(TRANSPORT_KEY); } catch { /* ignore */ }
+  }
+
+  /** 'HH:mm' → 分钟；非法输入返回 null（调用方据此退回默认编排） */
+  function toMinutes(hhmm) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+    return h * 60 + min;
+  }
+
+  /**
+   * 从站点/机场名提取城市名。
+   * 「SHA 虹桥」→ 虹桥 →（去方位与站场后缀）→ 空 → 回退原值；
+   * 「北京西」→ 北京；「PEK 首都国际机场」→ 首都。
+   * 提取失败时返回原始文本 —— 预填错了用户能改，填不上才是断链。
+   */
+  function cityFromPlace(place) {
+    const raw = String(place || '').trim();
+    if (!raw) return '';
+    // 去掉三字码前缀（SHA / PEK）与括号备注
+    const zh = raw.replace(/\([^)]*\)/g, '').replace(/\b[A-Z]{3}\b/g, '').trim();
+    const base = zh
+      .replace(/(国际)?机场.*$/, '')
+      .replace(/(火车|高铁|动车)?站$/, '')
+      .replace(/[东西南北]$/, '')
+      .replace(/T\d$/, '')
+      .trim();
+    return base || zh || raw;
+  }
+
+  /** 班次简称：CA1781 / G321 */
+  function transportCode(t) {
+    return String(t.flightNo || t.carrier || '班次').trim();
+  }
+
+  function transportIcon(t) {
+    return t.type === 'train' ? '🚄' : '✈️';
+  }
+
+  /** 把已选班次套用到页面：预填城市 + 渲染绑定横幅 */
+  function applySelectedTransport() {
+    const t = readTransport();
+    renderTransportBanner(t);
+    if (!t) return;
+
+    // 预填出发/目的地（不覆盖用户已填内容）
+    const from = cityFromPlace(t.depCity);
+    const to = cityFromPlace(t.arrCity);
+    if (els.apFrom && !els.apFrom.value && from) els.apFrom.value = from;
+    if (els.apTo && !els.apTo.value && to) {
+      els.apTo.value = to;
+      Cart.setCtx({ city: to });
+    }
+  }
+
+  /** 绑定横幅：位于行程篮与时间轴之上，始终可见 */
+  function renderTransportBanner(t) {
+    const host = document.getElementById('basket-section');
+    let bar = document.getElementById('transport-bind');
+
+    if (!t) {
+      if (bar) bar.remove();
+      return;
+    }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'transport-bind';
+      bar.className = 'transport-bind';
+      if (host && host.parentNode) host.parentNode.insertBefore(bar, host);
+      else return;
+
+      // 事件只绑一次（元素复用，内容由下方 innerHTML 更新）
+      bar.addEventListener('click', (e) => {
+        if (e.target.closest('[data-transport="change"]')) {
+          window.location.href = '/ticket.html';
+        } else if (e.target.closest('[data-transport="clear"]')) {
+          clearTransport();
+          renderTransportBanner(null);
+          // Day 1 回退到标准全天模板：用未经裁剪的原始 plan 重绘
+          if (state.lastPlan) {
+            renderTipsCard(state.lastPlan);
+            renderTimeline(state.lastPlan);
+          }
+          toast('已清除绑定班次，Day 1 已恢复完整行程');
+        }
+      });
+    }
+
+    const arrPlace = String(t.arrCity || '').trim();
+    bar.innerHTML =
+      `<span class="transport-bind-icon" aria-hidden="true">${transportIcon(t)}</span>` +
+      `<span class="transport-bind-text">已绑定出发班次：<b>${esc(transportCode(t))}</b>` +
+      `<i>（${esc(t.arrTime || '')} 抵达${arrPlace ? ' ' + esc(arrPlace) : ''}）</i></span>` +
+      `<span class="transport-bind-actions">` +
+      `<button type="button" class="transport-bind-btn" data-transport="change">更换</button>` +
+      `<button type="button" class="transport-bind-btn is-clear" data-transport="clear">清除</button>` +
+      `</span>`;
+  }
+
+  /**
+   * 按抵达时刻重排 Day 1。
+   *
+   * A 早到（< 11:30）：全天保留，仅在最前插入抵达事件
+   * B 午后（11:30-17:30）：去掉上午项，抵达后先入住，再安排下午轻量游览与晚餐
+   * C 夜间（> 17:30）：只保留 抵达 → 入住 → 夜宵/休息，白天景点整体顺延
+   *
+   * 返回新对象，不改动入参 —— 保证 state.lastPlan 始终是服务端原样，
+   * 「清除班次」时可以无损回退（Case D）。
+   */
+  function applyTransportToPlan(plan) {
+    const t = readTransport();
+    if (!plan || !Array.isArray(plan.itinerary) || plan.itinerary.length === 0) return plan;
+    if (!t) return plan;
+
+    const arrMin = toMinutes(t.arrTime);
+    const days = plan.itinerary.map((d) => ({ ...d, slots: [...(d.slots || [])] }));
+    const day1 = days[0];
+    const notes = [];
+
+    // 抵达事件：Day 1 的第一项
+    const arrPlace = String(t.arrCity || '').trim();
+    const arrivalSlot = {
+      slot: '抵达',
+      time: t.arrTime || '',
+      type: 'ticket',
+      item: { name: `抵达【${arrPlace || '目的地'}】`, address: arrPlace },
+      reason: '出站并前往市区酒店寄存行李',
+    };
+
+    let rest = day1.slots.filter((s) => s && s.type !== 'ticket');
+
+    // 抵达时刻无法解析：只插入抵达事件，不做任何裁剪（宁可多排，不可错删）
+    if (arrMin !== null) {
+      if (arrMin >= ARR_LATE_MIN) {
+        // Case C：夜间抵达 —— 只留住宿与晚间轻食
+        const hotel = rest.filter((s) => s.type === 'hotel');
+        const dinner = rest.filter((s) => s.type === 'food' && (toMinutes(s.time) ?? 0) >= 17 * 60);
+        rest = [...hotel, ...dinner.slice(0, 1)];
+        if (!dinner.length) {
+          rest.push({
+            slot: '夜宵',
+            time: minutesToHHMM(Math.min(arrMin + 90, 22 * 60 + 30)),
+            type: 'food',
+            item: { name: '酒店附近夜市 / 清淡夜宵' },
+            reason: '夜间抵达，先补充能量再休息，为明天留足体力',
+          });
+        }
+        notes.push(`▸ 班次于 ${t.arrTime} 抵达，Day 1 已为您自动精简白天行程，避免劳累。`);
+      } else if (arrMin >= ARR_EARLY_MIN) {
+        // Case B：午后抵达 —— 去掉上午项，保留下午与晚餐
+        const before = rest.length;
+        rest = rest.filter((s) => {
+          if (s.type === 'hotel') return true;              // 入住始终保留
+          const m = toMinutes(s.time);
+          return m === null || m >= 12 * 60;                 // 仅剔除上午安排
+        });
+        if (rest.length < before) {
+          notes.push(`▸ 班次于 ${t.arrTime} 抵达，Day 1 已为您自动精简白天行程，避免劳累。`);
+        }
+      }
+      // Case A：早到，全天保留，无需裁剪
+
+      // 入住紧随抵达之后（B/C 下尤其重要）
+      const hotelIdx = rest.findIndex((s) => s.type === 'hotel');
+      if (hotelIdx > 0) {
+        const [h] = rest.splice(hotelIdx, 1);
+        rest.unshift(h);
+      }
+      // 抵达之后的项不应早于抵达时刻
+      const floor = arrMin + 45;
+      rest = rest.map((s) => {
+        const m = toMinutes(s.time);
+        return (m !== null && m < floor) ? { ...s, time: minutesToHHMM(floor) } : s;
+      });
+    }
+
+    day1.slots = [arrivalSlot, ...rest];
+    days[0] = day1;
+
+    return { ...plan, itinerary: days, __transportNotes: notes };
+  }
+
+  /** 分钟 → 'HH:mm'（跨日截断到 23:59，避免出现 24:xx） */
+  function minutesToHHMM(min) {
+    const v = Math.max(0, Math.min(23 * 60 + 59, Math.round(min)));
+    return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+  }
 
   // ── 一键智能规划（Task 4）──────────────────────────────────────────────
 
@@ -721,8 +943,9 @@
 
       state.lastPlan = body;
       renderAgentSteps(body.agent);
-      renderTipsCard(body);
-      renderTimeline(body);
+      const displayPlan = applyTransportToPlan(body);
+      renderTipsCard(displayPlan);
+      renderTimeline(displayPlan);
       els.timelineSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {
       appendStep({ name: '生成失败', detail: err.message, ms: 0 }, els.agentSteps.children.length);
@@ -775,13 +998,15 @@
     els.tipsTrapsList.innerHTML = tips.traps.map((t) => `<li>${esc(t)}</li>`).join('');
     els.tipsGearList.innerHTML = tips.gear.map((t) => `<li>${esc(t)}</li>`).join('');
 
-    // 技术性编排日志：折叠收纳
-    const warnings = (plan?.warnings || []).filter(Boolean);
+    // 技术性编排日志：折叠收纳；班次调整注记优先置顶
+    const transportNotes = (plan?.__transportNotes || []).filter(Boolean);
+    const warnings = [...transportNotes, ...(plan?.warnings || []).filter(Boolean)];
     if (warnings.length) {
       els.warningsList.innerHTML = warnings.map((w) => `<li>${esc(w)}</li>`).join('');
       els.aiAdjustmentsCount.textContent = `(${warnings.length} 项)`;
       els.aiAdjustments.hidden = false;
-      els.aiAdjustments.open = false;
+      // 有班次调整注记时自动展开，让用户第一眼就看见
+      els.aiAdjustments.open = transportNotes.length > 0;
     } else {
       els.warningsList.innerHTML = '';
       els.aiAdjustments.hidden = true;

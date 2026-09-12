@@ -71,7 +71,7 @@
     amapOpt.disabled = !usable;
     amapOpt.textContent = usable ? '高德地图（真实数据）' : '高德地图（仅餐厅筛选）';
     if (!usable && sourceSelect.value === 'amap') {
-      sourceSelect.value = 'auto';
+      sourceSelect.value = 'local';
       updateSourceHint();
     }
   }

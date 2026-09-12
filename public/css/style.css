@@ -4103,6 +4103,19 @@ body {
   box-shadow: 0 6px 12px rgba(23, 107, 103, 0.18);
 }
 
+.select-btn.is-selected {
+  background: var(--primary, #1d4f91);
+  border-color: var(--primary, #1d4f91);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(29, 79, 145, 0.28);
+}
+
+.select-btn.is-selected:hover {
+  background: var(--primary-strong, #163d73);
+  border-color: var(--primary-strong, #163d73);
+  transform: translateY(-1px);
+}
+
 .map-btn {
   border-radius: 999px;
   border-color: #d8c298;
